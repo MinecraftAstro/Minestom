@@ -154,13 +154,6 @@ record ComponentNetworkBufferTypeImpl() implements NetworkBufferTypeImpl<Compone
             buffer.write(INT, shadowColor.value());
         }
 
-        final ShadowColor shadowColor = style.shadowColor();
-        if (shadowColor != null) {
-            buffer.write(BYTE, TAG_INT);
-            writeUtf(buffer, "shadow_color");
-            buffer.write(INT, shadowColor.value());
-        }
-
         final Key font = style.font();
         if (font != null) {
             buffer.write(BYTE, TAG_STRING);
