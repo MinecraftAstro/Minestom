@@ -70,6 +70,7 @@ public final class ServerFlag {
     // Experimental/Unstable
     public static final boolean REGISTRY_UNSAFE_OPS = booleanProperty("minestom.registry.unsafe-ops");
     public static final boolean EVENT_NODE_ALLOW_MULTIPLE_PARENTS = booleanProperty("minestom.event.multiple-parents");
+    public static final boolean USE_CHAIN_API_FOR_INVENTORY = booleanProperty("minestom.inventory-chain-api", true);
 
     public static boolean INSIDE_TEST = booleanProperty("minestom.inside-test", false);
 

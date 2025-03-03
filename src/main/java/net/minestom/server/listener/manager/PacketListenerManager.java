@@ -1,8 +1,10 @@
 package net.minestom.server.listener.manager;
 
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.ServerFlag;
 import net.minestom.server.event.EventDispatcher;
 import net.minestom.server.event.player.PlayerPacketEvent;
+import net.minestom.server.experimental.inventory.packet.ClickHandlerChainListener;
 import net.minestom.server.listener.*;
 import net.minestom.server.listener.common.*;
 import net.minestom.server.listener.preplay.HandshakeListener;
@@ -62,7 +64,11 @@ public final class PacketListenerManager {
         setPlayListener(ClientKeepAlivePacket.class, KeepAliveListener::listener);
         setPlayListener(ClientCommandChatPacket.class, ChatMessageListener::commandChatListener);
         setPlayListener(ClientChatMessagePacket.class, ChatMessageListener::chatMessageListener);
-        setPlayListener(ClientClickWindowPacket.class, WindowListener::clickWindowListener);
+        if (ServerFlag.USE_CHAIN_API_FOR_INVENTORY) {
+            setPlayListener(ClientClickWindowPacket.class, ClickHandlerChainListener::clickWindowListener);
+        } else {
+            setPlayListener(ClientClickWindowPacket.class, WindowListener::clickWindowListener);
+        }
         setPlayListener(ClientCloseWindowPacket.class, WindowListener::closeWindowListener);
         setPlayListener(ClientConfigurationAckPacket.class, LoginListener::configAckListener);
         setPlayListener(ClientPongPacket.class, WindowListener::pong);
