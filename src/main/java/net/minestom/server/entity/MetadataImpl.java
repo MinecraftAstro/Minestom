@@ -25,6 +25,7 @@ import static net.minestom.server.entity.Metadata.*;
 import static net.minestom.server.network.NetworkBuffer.VAR_INT;
 
 final class MetadataImpl {
+
     static final ObjectArray<Metadata.Entry<?>> EMPTY_VALUES = ObjectArray.singleThread(20);
 
     static {

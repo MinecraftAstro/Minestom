@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 final class MetadataDefImpl {
+
     static final Map<String, Integer> MAX_INDEX = new HashMap<>();
 
     static <T> MetadataDef.Entry.Index<T> index(int index, Function<T, Metadata.Entry<T>> function, T defaultValue) {

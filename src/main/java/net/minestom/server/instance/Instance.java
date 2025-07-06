@@ -16,7 +16,6 @@ import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.coordinate.CoordConversion;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.Entity;
-import net.minestom.server.entity.EntityCreature;
 import net.minestom.server.entity.ExperienceOrb;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.EventDispatcher;
@@ -277,6 +276,11 @@ public abstract class Instance implements Block.Getter, Block.Setter,
         final Chunk chunk = getChunk(chunkX, chunkZ);
         Check.notNull(chunk, "The chunk at {0}:{1} is already unloaded", chunkX, chunkZ);
         unloadChunk(chunk);
+    }
+
+    public void invalidateSection(int sectionX, int sectionY, int sectionZ) {
+        final Chunk chunk = getChunk(sectionX, sectionZ);
+        if (chunk != null) chunk.invalidate();
     }
 
     /**
@@ -653,13 +657,13 @@ public abstract class Instance implements Block.Getter, Block.Setter,
      *
      * @return an unmodifiable {@link Set} containing all the creatures in the instance
      */
-    @Deprecated
+    /*@Deprecated
     public @NotNull Set<@NotNull EntityCreature> getCreatures() {
         return entityTracker.entities().stream()
                 .filter(EntityCreature.class::isInstance)
                 .map(entity -> (EntityCreature) entity)
                 .collect(Collectors.toUnmodifiableSet());
-    }
+    }*/
 
     /**
      * Gets the experience orbs in the instance.

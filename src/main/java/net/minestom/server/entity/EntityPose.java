@@ -1,6 +1,7 @@
 package net.minestom.server.entity;
 
 public enum EntityPose {
+
     STANDING,
     FALL_FLYING,
     SLEEPING,
@@ -18,5 +19,5 @@ public enum EntityPose {
     DIGGING,
     SLIDING,
     SHOOTING,
-    INHALING;
+    INHALING
 }

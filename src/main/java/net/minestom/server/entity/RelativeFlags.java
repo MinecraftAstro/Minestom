@@ -1,6 +1,7 @@
 package net.minestom.server.entity;
 
 public class RelativeFlags {
+
     public static final int NONE = 0x00;
 
     public static final int X = 0x01;

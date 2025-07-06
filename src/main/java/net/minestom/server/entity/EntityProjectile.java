@@ -102,6 +102,7 @@ public class EntityProjectile extends Entity {
             if (super.onGround) {
                 return;
             }
+
             super.onGround = true;
             this.velocity = Vec.ZERO;
             sendPacketToViewersAndSelf(getVelocityPacket());
@@ -152,6 +153,7 @@ public class EntityProjectile extends Entity {
                 block = instance.getBlock(pos);
                 blockPos = pos;
             }
+
             if (block.isSolid()) {
                 final ProjectileCollideWithBlockEvent event = new ProjectileCollideWithBlockEvent(this, pos, block);
                 EventDispatcher.call(event);
@@ -161,6 +163,7 @@ public class EntityProjectile extends Entity {
                     return true;
                 }
             }
+
             if (currentChunk != chunk) {
                 chunk = currentChunk;
                 entities = instance.getChunkEntities(chunk)
@@ -169,6 +172,7 @@ public class EntityProjectile extends Entity {
                         .map(entity -> (LivingEntity) entity)
                         .collect(Collectors.toSet());
             }
+
             final Point currentPos = pos;
             Stream<LivingEntity> victimsStream = entities.stream()
                     .filter(entity -> bb.intersectEntity(currentPos, entity));
@@ -179,6 +183,7 @@ public class EntityProjectile extends Entity {
             if (aliveTicks < 3 && shooter != null) {
                 victimsStream = victimsStream.filter(entity -> entity != shooter);
             }
+
             final Optional<LivingEntity> victimOptional = victimsStream.findAny();
             if (victimOptional.isPresent()) {
                 final LivingEntity target = victimOptional.get();
@@ -189,6 +194,7 @@ public class EntityProjectile extends Entity {
                 }
             }
         }
+
         return false;
     }
 

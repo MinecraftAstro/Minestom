@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 public final class MetadataHolder {
+
     private static final VarHandle NOTIFIED_CHANGES;
 
     static {

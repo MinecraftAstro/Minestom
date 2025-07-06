@@ -9,6 +9,8 @@ import net.minestom.demo.block.TestBlockHandler;
 import net.minestom.demo.block.placement.BedPlacementRule;
 import net.minestom.demo.block.placement.DripstonePlacementRule;
 import net.minestom.demo.commands.*;
+import net.minestom.demo.commands.pathfinding.ComeCommand;
+import net.minestom.demo.commands.pathfinding.SpawnCommand;
 import net.minestom.demo.recipe.ShapelessRecipe;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandManager;
@@ -42,6 +44,8 @@ public class Main {
         blockManager.registerHandler(TestBlockHandler.INSTANCE.getKey(), () -> TestBlockHandler.INSTANCE);
 
         CommandManager commandManager = MinecraftServer.getCommandManager();
+        commandManager.register(new SpawnCommand());
+        commandManager.register(new ComeCommand());
         commandManager.register(new TestCommand());
         commandManager.register(new EntitySelectorCommand());
         commandManager.register(new HealthCommand());
@@ -54,9 +58,9 @@ public class Main {
         commandManager.register(new TitleCommand());
         commandManager.register(new BookCommand());
         commandManager.register(new ShootCommand());
-        commandManager.register(new HorseCommand());
+        //commandManager.register(new HorseCommand());
         commandManager.register(new EchoCommand());
-        commandManager.register(new SummonCommand());
+        //commandManager.register(new SummonCommand());
         commandManager.register(new RemoveCommand());
         commandManager.register(new GiveCommand());
         commandManager.register(new SetBlockCommand());
@@ -82,6 +86,7 @@ public class Main {
         commandManager.register(new AttributeCommand());
         commandManager.register(new PrimedTNTCommand());
         commandManager.register(new SleepCommand());
+        commandManager.register(new BatchCommand());
 
         commandManager.setUnknownCommandCallback((sender, command) -> sender.sendMessage(Component.text("Unknown command", NamedTextColor.RED)));
 

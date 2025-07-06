@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnknownNullability;
 
 public record VillagerProfessionImpl(RegistryData.VillagerProfessionEntry registry) implements VillagerProfession {
+
     static final Registry<VillagerProfession> REGISTRY = RegistryData.createStaticRegistry(Key.key("minecraft:villager_profession"),
             (namespace, properties) -> new VillagerProfessionImpl(RegistryData.villagerProfession(namespace, properties)));
 
@@ -15,7 +16,7 @@ public record VillagerProfessionImpl(RegistryData.VillagerProfessionEntry regist
     }
 
     @Override
-    public String toString() {
+    public @NotNull String toString() {
         return name();
     }
 }

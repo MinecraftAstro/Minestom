@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnknownNullability;
 
 record EntityTypeImpl(RegistryData.EntityEntry registry) implements EntityType {
+
     static final Registry<EntityType> REGISTRY = RegistryData.createStaticRegistry(Key.key("minecraft:entity_type"),
             (namespace, properties) -> new EntityTypeImpl(RegistryData.entity(namespace, properties)));
 
@@ -15,7 +16,7 @@ record EntityTypeImpl(RegistryData.EntityEntry registry) implements EntityType {
     }
 
     @Override
-    public String toString() {
+    public @NotNull String toString() {
         return name();
     }
 }

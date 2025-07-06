@@ -12,6 +12,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public enum EquipmentSlotGroup implements Predicate<EquipmentSlot> {
+
     ANY("any", EquipmentSlot.values()),
     MAIN_HAND("mainhand", EquipmentSlot.MAIN_HAND),
     OFF_HAND("offhand", EquipmentSlot.OFF_HAND),

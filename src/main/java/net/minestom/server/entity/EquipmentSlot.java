@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import static net.minestom.server.utils.inventory.PlayerInventoryUtils.*;
 
 public enum EquipmentSlot {
+
     MAIN_HAND(0, 0, "mainhand", false, -1),
     OFF_HAND(5, 1, "offhand", false, -1),
     BOOTS(1, 2, "feet", true, BOOTS_SLOT),

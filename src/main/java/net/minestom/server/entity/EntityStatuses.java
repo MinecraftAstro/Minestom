@@ -5,6 +5,7 @@ package net.minestom.server.entity;
  */
 @SuppressWarnings("ALL")
 public sealed class EntityStatuses {
+
     public static final int SPAWNS_HONEY_BLOCK_PARTICLES = 53;
 
     public static final class Arrow extends EntityStatuses {

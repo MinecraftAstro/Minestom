@@ -33,6 +33,7 @@ import static net.minestom.server.entity.MetadataDefImpl.*;
  */
 @SuppressWarnings({"unused", "SpellCheckingInspection"})
 public sealed class MetadataDef {
+
     public static final Entry<Byte> ENTITY_FLAGS = index(0, Metadata::Byte, (byte) 0);
     public static final Entry<Boolean> IS_ON_FIRE = bitMask(0, (byte) 0x01, false);
     public static final Entry<Boolean> IS_CROUCHING = bitMask(0, (byte) 0x02, false);

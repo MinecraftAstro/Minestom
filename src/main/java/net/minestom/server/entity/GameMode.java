@@ -11,6 +11,7 @@ import static net.minestom.server.network.NetworkBuffer.BYTE;
  * Can be set with {@link Player#setGameMode(GameMode)}.
  */
 public enum GameMode {
+
     SURVIVAL(false, false, false),
     CREATIVE(true, true, true),
     ADVENTURE(false, false, false),
