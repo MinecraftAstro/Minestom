@@ -24,6 +24,11 @@ sourceSets {
     }
 }
 
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
 tasks.register<Task>("determineMinecraftVersion") {
     outputs.upToDateWhen { false } // Never cache
 
@@ -59,7 +64,12 @@ tasks.jar {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            artifact(tasks.shadowJar.get())
+            val jar = tasks.shadowJar.get()
+            jar.archiveClassifier.set("")
+            artifact(jar)
+
+            artifact(tasks.named("sourcesJar").get())
+            artifact(tasks.named("javadocJar").get())
 
             groupId = "net.minestom.server"
             artifactId = "minestom"
