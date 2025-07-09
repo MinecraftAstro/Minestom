@@ -1,9 +1,9 @@
 plugins {
     id("minestom.java-library")
-    id("minestom.publishing")
-    alias(libs.plugins.blossom)
+    id("maven-publish")
+    id("com.gradleup.shadow") version "9.0.0-rc1"
 
-    alias(libs.plugins.nmcp.aggregation)
+    alias(libs.plugins.blossom)
 }
 
 sourceSets {
@@ -56,17 +56,14 @@ tasks.jar {
     }
 }
 
-// Publishing configuration below
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifact(tasks.shadowJar.get())
 
-nmcpAggregation {
-    centralPortal {
-        username = System.getenv("SONATYPE_USERNAME")
-        password = System.getenv("SONATYPE_PASSWORD")
-        publishingType = "AUTOMATIC"
+            groupId = "net.minestom.server"
+            artifactId = "minestom"
+            version = "1.0.0"
+        }
     }
-}
-
-dependencies {
-    nmcpAggregation(rootProject)
-    nmcpAggregation(project(":testing"))
 }
