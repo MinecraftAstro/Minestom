@@ -3,7 +3,6 @@ package net.minestom.server.codec;
 import net.minestom.server.codec.Transcoder.MapBuilder;
 import net.minestom.server.codec.Transcoder.MapLike;
 import net.minestom.server.network.NetworkBufferTemplate.*;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Function;
@@ -16,30 +15,69 @@ public interface StructCodec<R> extends Codec<R> {
      */
     String INLINE = "$$inline$$";
 
-    @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map);
+    <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map);
 
-    @NotNull <D> Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map);
+    <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map);
 
     @Override
-    default @NotNull <D> Result<R> decode(@NotNull Transcoder<D> coder, @NotNull D value) {
+    default <D> Result<R> decode(Transcoder<D> coder, D value) {
         return coder.getMap(value).map(map -> decodeFromMap(coder, map));
     }
 
     @Override
-    default @NotNull <D> Result<D> encode(@NotNull Transcoder<D> coder, @Nullable R value) {
+    default <D> Result<D> encode(Transcoder<D> coder, @Nullable R value) {
         if (value == null) return new Result.Error<>("null");
         return encodeToMap(coder, value, coder.createMap());
+    }
+
+    default StructCodec<R> orElseStruct(StructCodec<R> other) {
+        return new StructCodec<>() {
+            @Override
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
+                final Result<R> primaryResult = StructCodec.this.decodeFromMap(coder, map);
+                if (primaryResult instanceof Result.Ok<R> primaryOk)
+                    return primaryOk;
+
+                // Primary did not work, try secondary
+                final Result<R> secondaryResult = other.decodeFromMap(coder, map);
+                if (secondaryResult instanceof Result.Ok<R> secondaryOk)
+                    return secondaryOk;
+
+                // Secondary did not work either, return error from primary.
+                return primaryResult;
+            }
+
+            @Override
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
+                return StructCodec.this.encodeToMap(coder, value, map);
+            }
+        };
+    }
+
+    static <R> StructCodec<R> struct(R value) {
+        final Result<R> ok = new Result.Ok<>(value);
+        return new StructCodec<>() {
+            @Override
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
+                return ok;
+            }
+
+            @Override
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
+                return new Result.Ok<>(map.build());
+            }
+        };
     }
 
     static <R> StructCodec<R> struct(Supplier<R> ctor) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 return new Result.Ok<>(ctor.get());
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 return new Result.Ok<>(map.build());
             }
         };
@@ -51,7 +89,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -59,7 +97,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 return new Result.Ok<>(map.build());
@@ -74,7 +112,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -85,7 +123,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -103,7 +141,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -117,7 +155,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -138,7 +176,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -155,7 +193,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -179,7 +217,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -199,7 +237,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -226,7 +264,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -249,7 +287,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -279,7 +317,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -305,7 +343,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -338,7 +376,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -367,7 +405,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -403,7 +441,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -435,7 +473,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -474,7 +512,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -509,7 +547,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -551,7 +589,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -589,7 +627,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -634,7 +672,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -675,7 +713,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -723,7 +761,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -767,7 +805,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -818,7 +856,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -865,7 +903,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -919,7 +957,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -969,7 +1007,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1026,7 +1064,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -1079,7 +1117,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1139,7 +1177,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -1195,7 +1233,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1258,7 +1296,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -1317,7 +1355,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1383,7 +1421,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -1445,7 +1483,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1514,7 +1552,7 @@ public interface StructCodec<R> extends Codec<R> {
     ) {
         return new StructCodec<>() {
             @Override
-            public @NotNull <D> Result<R> decodeFromMap(@NotNull Transcoder<D> coder, @NotNull MapLike<D> map) {
+            public <D> Result<R> decodeFromMap(Transcoder<D> coder, MapLike<D> map) {
                 final Result<P1> result1 = get(coder, codec1, name1, map);
                 if (!(result1 instanceof Result.Ok(P1 value1)))
                     return result1.cast();
@@ -1579,7 +1617,7 @@ public interface StructCodec<R> extends Codec<R> {
             }
 
             @Override
-            public <D> @NotNull Result<D> encodeToMap(@NotNull Transcoder<D> coder, @NotNull R value, @NotNull MapBuilder<D> map) {
+            public <D> Result<D> encodeToMap(Transcoder<D> coder, R value, MapBuilder<D> map) {
                 final Result<D> result1 = put(coder, codec1, map, name1, getter1.apply(value));
                 if (result1 != null) return result1;
                 final Result<D> result2 = put(coder, codec2, map, name2, getter2.apply(value));
@@ -1625,7 +1663,7 @@ public interface StructCodec<R> extends Codec<R> {
         };
     }
 
-    private static <D, T> @NotNull Result<T> get(@NotNull Transcoder<D> coder, @NotNull Codec<T> codec, @NotNull String key, @NotNull MapLike<D> map) {
+    private static <D, T> Result<T> get(Transcoder<D> coder, Codec<T> codec, String key, MapLike<D> map) {
         if (INLINE.equals(key)) {
             final Codec<T> decodeCodec = codec instanceof CodecImpl.OptionalImpl<T>(
                     Codec<T> inner, T ignored
@@ -1651,7 +1689,7 @@ public interface StructCodec<R> extends Codec<R> {
                 .mapError(e -> key + ": " + e);
     }
 
-    private static <D, T> @Nullable Result<D> put(@NotNull Transcoder<D> coder, @NotNull Codec<T> codec, @NotNull MapBuilder<D> map, @NotNull String key, @Nullable T value) {
+    private static <D, T> @Nullable Result<D> put(Transcoder<D> coder, Codec<T> codec, MapBuilder<D> map, String key, @Nullable T value) {
         if (value == null) {
             if (!(codec instanceof CodecImpl.OptionalImpl<T>))
                 return new Result.Error<>(key + ": null");

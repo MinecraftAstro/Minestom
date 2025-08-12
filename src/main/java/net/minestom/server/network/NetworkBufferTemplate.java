@@ -1,7 +1,6 @@
 package net.minestom.server.network;
 
 import net.minestom.server.network.NetworkBuffer.Type;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -107,14 +106,27 @@ public final class NetworkBufferTemplate {
         R apply(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6, P7 p7, P8 p8, P9 p9, P10 p10, P11 p11, P12 p12, P13 p13, P14 p14, P15 p15, P16 p16, P17 p17, P18 p18, P19 p19, P20 p20);
     }
 
-    public static <R> Type<R> template(Supplier<R> supplier) {
+    public static <R> Type<R> template(R value) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
+                return value;
+            }
+        };
+    }
+
+    public static <R> Type<R> template(Supplier<R> supplier) {
+        return new NetworkBufferTypeImpl<>() {
+            @Override
+            public void write(NetworkBuffer buffer, R value) {
+            }
+
+            @Override
+            public R read(NetworkBuffer buffer) {
                 return supplier.get();
             }
         };
@@ -123,12 +135,12 @@ public final class NetworkBufferTemplate {
     public static <P1, R> Type<R> template(Type<P1> p1, Function<R, P1> g1, F1<P1, R> reader) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(p1.read(buffer));
             }
         };
@@ -140,13 +152,13 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(p1.read(buffer), p2.read(buffer));
             }
         };
@@ -158,14 +170,14 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(p1.read(buffer), p2.read(buffer), p3.read(buffer));
             }
         };
@@ -178,7 +190,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -186,7 +198,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer)
@@ -202,7 +214,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -211,7 +223,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -229,7 +241,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -239,7 +251,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -257,7 +269,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -268,7 +280,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -288,7 +300,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -300,7 +312,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -320,7 +332,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -333,7 +345,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -355,7 +367,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -369,7 +381,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -391,7 +403,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -406,7 +418,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -429,7 +441,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -445,7 +457,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -470,7 +482,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -487,7 +499,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -513,7 +525,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -531,7 +543,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -558,7 +570,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -577,7 +589,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -605,7 +617,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -625,7 +637,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -654,7 +666,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -675,7 +687,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -705,7 +717,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -727,7 +739,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -757,7 +769,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -780,7 +792,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),
@@ -812,7 +824,7 @@ public final class NetworkBufferTemplate {
     ) {
         return new NetworkBufferTypeImpl<>() {
             @Override
-            public void write(@NotNull NetworkBuffer buffer, R value) {
+            public void write(NetworkBuffer buffer, R value) {
                 p1.write(buffer, g1.apply(value));
                 p2.write(buffer, g2.apply(value));
                 p3.write(buffer, g3.apply(value));
@@ -836,7 +848,7 @@ public final class NetworkBufferTemplate {
             }
 
             @Override
-            public R read(@NotNull NetworkBuffer buffer) {
+            public R read(NetworkBuffer buffer) {
                 return reader.apply(
                         p1.read(buffer), p2.read(buffer),
                         p3.read(buffer), p4.read(buffer),

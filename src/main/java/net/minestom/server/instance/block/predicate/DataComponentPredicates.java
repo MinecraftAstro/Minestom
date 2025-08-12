@@ -5,7 +5,6 @@ import net.minestom.server.codec.StructCodec;
 import net.minestom.server.network.NetworkBuffer;
 import net.minestom.server.network.NetworkBufferTemplate;
 import net.minestom.server.utils.Unit;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -17,12 +16,12 @@ public class DataComponentPredicates {
             NetworkBuffer.UNIT.list(), DataComponentPredicates::exact,
             NetworkBuffer.UNIT.list(), DataComponentPredicates::partial,
             DataComponentPredicates::new);
-    public static final Codec<DataComponentPredicates> CODEC = StructCodec.struct(DataComponentPredicates::new);
+    public static final Codec<DataComponentPredicates> CODEC = StructCodec.struct(new DataComponentPredicates());
 
     private DataComponentPredicates() {
     }
 
-    private DataComponentPredicates(@NotNull List<Unit> exact, @NotNull List<Unit> partial) {
+    private DataComponentPredicates(List<Unit> exact, List<Unit> partial) {
     }
 
     private List<Unit> exact() {
