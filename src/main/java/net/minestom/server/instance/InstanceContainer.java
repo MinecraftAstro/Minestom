@@ -17,6 +17,7 @@ import net.minestom.server.event.instance.InstanceChunkUnloadEvent;
 import net.minestom.server.event.player.PlayerBlockBreakEvent;
 import net.minestom.server.instance.anvil.AnvilLoader;
 import net.minestom.server.instance.block.Block;
+import net.minestom.server.instance.block.BlockEntityType;
 import net.minestom.server.instance.block.BlockFace;
 import net.minestom.server.instance.block.BlockHandler;
 import net.minestom.server.instance.block.rule.BlockPlacementRule;
@@ -29,7 +30,6 @@ import net.minestom.server.network.packet.server.play.BlockEntityDataPacket;
 import net.minestom.server.network.packet.server.play.UnloadChunkPacket;
 import net.minestom.server.network.packet.server.play.WorldEventPacket;
 import net.minestom.server.registry.DynamicRegistry;
-import net.minestom.server.registry.RegistryData;
 import net.minestom.server.registry.RegistryKey;
 import net.minestom.server.utils.PacketSendingUtils;
 import net.minestom.server.utils.async.AsyncUtils;
@@ -82,7 +82,7 @@ public class InstanceContainer extends Instance {
     private final Map<BlockVec, Block> currentlyChangingBlocks = new HashMap<>();
 
     // the chunk loader, used when trying to load/save a chunk from another source
-    private IChunkLoader chunkLoader;
+    private ChunkLoader chunkLoader;
 
     // used to automatically enable the chunk loading or not
     private boolean autoChunkLoad = true;
@@ -102,11 +102,11 @@ public class InstanceContainer extends Instance {
         this(uuid, dimensionType, null, dimensionName);
     }
 
-    public InstanceContainer(UUID uuid, RegistryKey<DimensionType> dimensionType, @Nullable IChunkLoader loader) {
+    public InstanceContainer(UUID uuid, RegistryKey<DimensionType> dimensionType, @Nullable ChunkLoader loader) {
         this(uuid, dimensionType, loader, dimensionType.key());
     }
 
-    public InstanceContainer(UUID uuid, RegistryKey<DimensionType> dimensionType, @Nullable IChunkLoader loader, Key dimensionName) {
+    public InstanceContainer(UUID uuid, RegistryKey<DimensionType> dimensionType, @Nullable ChunkLoader loader, Key dimensionName) {
         this(MinecraftServer.getDimensionTypeRegistry(), uuid, dimensionType, loader, dimensionName);
     }
 
@@ -114,7 +114,7 @@ public class InstanceContainer extends Instance {
             DynamicRegistry<DimensionType> dimensionTypeRegistry,
             UUID uuid,
             RegistryKey<DimensionType> dimensionType,
-            @Nullable IChunkLoader loader,
+            @Nullable ChunkLoader loader,
             Key dimensionName
     ) {
         super(dimensionTypeRegistry, uuid, dimensionType, dimensionName);
@@ -203,10 +203,10 @@ public class InstanceContainer extends Instance {
             // Refresh player chunk block
             {
                 chunk.sendPacketToViewers(new BlockChangePacket(blockPosition, block.stateId()));
-                RegistryData.BlockEntry registry = block.registry();
-                if (registry.isBlockEntity()) {
+                BlockEntityType blockEntityType = block.registry().blockEntityType();
+                if (blockEntityType != null) {
                     final CompoundBinaryTag data = BlockUtils.extractClientNbt(block);
-                    chunk.sendPacketToViewers(new BlockEntityDataPacket(blockPosition, registry.blockEntityId(), data));
+                    chunk.sendPacketToViewers(new BlockEntityDataPacket(blockPosition, blockEntityType, data));
                 }
             }
             EventDispatcher.call(new InstanceBlockUpdateEvent(this, blockPosition, block));
@@ -290,19 +290,19 @@ public class InstanceContainer extends Instance {
 
     @Override
     public CompletableFuture<Void> saveInstance() {
-        final IChunkLoader chunkLoader = this.chunkLoader;
+        final ChunkLoader chunkLoader = this.chunkLoader;
         return optionalAsync(chunkLoader.supportsParallelSaving(), () -> chunkLoader.saveInstance(this));
     }
 
     @Override
     public CompletableFuture<Void> saveChunkToStorage(Chunk chunk) {
-        final IChunkLoader chunkLoader = this.chunkLoader;
+        final ChunkLoader chunkLoader = this.chunkLoader;
         return optionalAsync(chunkLoader.supportsParallelSaving(), () -> chunkLoader.saveChunk(chunk));
     }
 
     @Override
     public CompletableFuture<Void> saveChunksToStorage() {
-        final IChunkLoader chunkLoader = this.chunkLoader;
+        final ChunkLoader chunkLoader = this.chunkLoader;
         return optionalAsync(chunkLoader.supportsParallelSaving(), () -> chunkLoader.saveChunks(getChunks()));
     }
 
@@ -328,7 +328,7 @@ public class InstanceContainer extends Instance {
         final long index = CoordConversion.chunkIndex(chunkX, chunkZ);
         final CompletableFuture<Chunk> prev = loadingChunks.putIfAbsent(index, completableFuture);
         if (prev != null) return prev;
-        final IChunkLoader loader = chunkLoader;
+        final ChunkLoader loader = chunkLoader;
         final Consumer<Chunk> generate = chunk -> {
             if (chunk == null) {
                 // Loader couldn't load the chunk, generate it
@@ -507,7 +507,7 @@ public class InstanceContainer extends Instance {
      * Uses {@link DynamicChunk} by default.
      * <p>
      * WARNING: if you need to save this instance's chunks later,
-     * the code needs to be predictable for {@link IChunkLoader#loadChunk(Instance, int, int)}
+     * the code needs to be predictable for {@link ChunkLoader#loadChunk(Instance, int, int)}
      * to create the correct type of {@link Chunk}. tl;dr: Need chunk save = no random type.
      *
      * @param chunkSupplier the new {@link ChunkSupplier} of this instance, chunks need to be non-null
@@ -624,10 +624,17 @@ public class InstanceContainer extends Instance {
     @ApiStatus.Experimental
     @Override
     public CompletableFuture<Void> generateChunk(int chunkX, int chunkZ, Generator generator) {
-        return loadChunk(chunkX, chunkZ).thenAccept(chunk -> {
-            if (!isLoaded(chunk)) return;
-            generateChunk(chunk, generator);
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        Thread.startVirtualThread(() -> {
+            Chunk chunk = loadChunk(chunkX, chunkZ).join();
+            synchronized (chunk) {
+                generateChunk(chunk, generator);
+                chunk.invalidate();
+            }
+            chunk.sendChunk();
+            future.complete(null);
         });
+        return future;
     }
 
     /**
@@ -641,22 +648,22 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Gets the {@link IChunkLoader} of this instance.
+     * Gets the {@link ChunkLoader} of this instance.
      *
-     * @return the {@link IChunkLoader} of this instance
+     * @return the {@link ChunkLoader} of this instance
      */
-    public IChunkLoader getChunkLoader() {
+    public ChunkLoader getChunkLoader() {
         return chunkLoader;
     }
 
     /**
-     * Changes the {@link IChunkLoader} of this instance (to change how chunks are retrieved when not already loaded).
+     * Changes the {@link ChunkLoader} of this instance (to change how chunks are retrieved when not already loaded).
      *
-     * <p>{@link IChunkLoader#noop()} can be used to do nothing.</p>
+     * <p>{@link ChunkLoader#noop()} can be used to do nothing.</p>
      *
-     * @param chunkLoader the new {@link IChunkLoader}
+     * @param chunkLoader the new {@link ChunkLoader}
      */
-    public void setChunkLoader(IChunkLoader chunkLoader) {
+    public void setChunkLoader(ChunkLoader chunkLoader) {
         this.chunkLoader = Objects.requireNonNull(chunkLoader, "Chunk loader cannot be null");
     }
 

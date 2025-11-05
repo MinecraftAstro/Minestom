@@ -38,6 +38,7 @@ import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.block.BlockFace;
 import net.minestom.server.instance.block.BlockHandler;
+import net.minestom.server.item.component.CustomData;
 import net.minestom.server.monitoring.EventsJFR;
 import net.minestom.server.network.packet.server.CachedPacket;
 import net.minestom.server.network.packet.server.play.*;
@@ -303,13 +304,14 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @Override
     public <T> @Nullable T get(DataComponent<T> component) {
         if (component == DataComponents.CUSTOM_DATA)
-            return (T) tagHandler.asCompound();
+            return (T) new CustomData(tagHandler.asCompound());
         return EntityMeta.getComponent(getEntityMeta(), component);
     }
 
     public <T> void set(DataComponent<T> component, T value) {
-        if (component == DataComponents.CUSTOM_DATA)
-            tagHandler.updateContent((CompoundBinaryTag) value);
+        if (component == DataComponents.CUSTOM_DATA) {
+            tagHandler.updateContent(((CustomData) value).nbt());
+        }
         else EntityMeta.setComponent(getEntityMeta(), component, value);
     }
 
@@ -535,14 +537,8 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         player.sendPacket(getSpawnPacket());
         if (hasVelocity()) player.sendPacket(getVelocityPacket());
         player.sendPacket(this.getMetadataPacket());
-        // Passengers
-        final Set<Entity> passengers = this.passengers;
-        if (!passengers.isEmpty()) {
-            for (Entity passenger : passengers) {
-                if (passenger != player) passenger.updateNewViewer(player);
-            }
-            player.sendPacket(getPassengersPacket());
-        }
+        // Passengers are handled in EntityView
+
         // Leashes
         if (leashHolder != null && (player.equals(leashHolder) || leashHolder.isViewer(player))) {
             player.sendPacket(getAttachEntityPacket());
@@ -564,12 +560,6 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      */
     @ApiStatus.Internal
     public void updateOldViewer(Player player) {
-        final Set<Entity> passengers = this.passengers;
-        if (!passengers.isEmpty()) {
-            for (Entity passenger : passengers) {
-                if (passenger != player) passenger.updateOldViewer(player);
-            }
-        }
         leashedEntities.forEach(entity -> player.sendPacket(new AttachEntityPacket(entity.getEntityId(), -1)));
         player.sendPacket(destroyPacketCache);
     }
@@ -1030,10 +1020,10 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         this.passengers.add(entity);
         entity.vehicle = this;
         sendPacketToViewersAndSelf(getPassengersPacket());
-        // Updates the position of the new passenger, and then teleports the passenger
         updatePassengerPosition(position, entity);
         entity.synchronizePosition();
     }
+
 
     /**
      * Removes a passenger to this entity.
@@ -1620,24 +1610,21 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     }
 
     protected Vec getVelocityForPacket() {
-        return this.velocity.mul(8000f / ServerFlag.SERVER_TICKS_PER_SECOND);
+        return this.velocity.div(ServerFlag.SERVER_TICKS_PER_SECOND);
     }
 
     protected SpawnEntityPacket getSpawnPacket() {
         int data = 0;
-        short velocityX = 0, velocityZ = 0, velocityY = 0;
+        Vec velocity = Vec.ZERO;
         if (getEntityMeta() instanceof ObjectDataProvider objectDataProvider) {
             data = objectDataProvider.getObjectData();
             if (objectDataProvider.requiresVelocityPacketAtSpawn()) {
-                final var velocity = getVelocityForPacket();
-                velocityX = (short) velocity.x();
-                velocityY = (short) velocity.y();
-                velocityZ = (short) velocity.z();
+                velocity = getVelocityForPacket();
             }
         }
         final Pos position = getPosition();
-        return new SpawnEntityPacket(getEntityId(), getUuid(), getEntityType().id(),
-                position, position.yaw(), data, velocityX, velocityY, velocityZ);
+        return new SpawnEntityPacket(getEntityId(), getUuid(), getEntityType(),
+                position, position.yaw(), data, velocity);
     }
 
     protected EntityVelocityPacket getVelocityPacket() {

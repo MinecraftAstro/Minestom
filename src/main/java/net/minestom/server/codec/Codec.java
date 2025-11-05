@@ -126,11 +126,7 @@ public interface Codec<T extends @UnknownNullability Object> extends Encoder<T>,
             value -> value.convertTo(Transcoder.NBT).orElseThrow(),
             value -> RawValue.of(Transcoder.NBT, value));
 
-    Codec<CompoundBinaryTag> NBT_COMPOUND = NBT.transform(value -> {
-        if (!(value instanceof CompoundBinaryTag compound))
-            throw new IllegalArgumentException("Not a compound: " + value);
-        return compound;
-    }, compound -> compound);
+    StructCodec<CompoundBinaryTag> NBT_COMPOUND = new CodecImpl.CompoundBinaryTagImpl();
 
     /**
      * Creates an enum codec from a given class
@@ -309,6 +305,20 @@ public interface Codec<T extends @UnknownNullability Object> extends Encoder<T>,
     @Contract(pure = true, value = "_, _ -> new")
     static <L, R> Codec<Either<L, R>> Either(Codec<L> leftCodec, Codec<R> rightCodec) {
         return new CodecImpl.EitherImpl<>(leftCodec, rightCodec);
+    }
+
+    /**
+     * Creates an Either Codec, depending on the value of Either decides which codec to use.
+     *
+     * @param leftCodec  the left codec
+     * @param rightCodec the right codec
+     * @param <L>        the left type
+     * @param <R>        the right type
+     * @return a {@link StructCodec} with {@link Either} of {@link L} and {@link R}
+     */
+    @Contract(pure = true, value = "_, _ -> new")
+    static <L, R> StructCodec<Either<L, R>> EitherStruct(StructCodec<L> leftCodec, StructCodec<R> rightCodec) {
+        return new CodecImpl.EitherStructImpl<>(leftCodec, rightCodec);
     }
 
     /**
