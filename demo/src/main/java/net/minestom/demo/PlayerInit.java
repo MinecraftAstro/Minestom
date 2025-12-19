@@ -13,6 +13,7 @@ import net.minestom.server.advancements.FrameType;
 import net.minestom.server.advancements.Notification;
 import net.minestom.server.adventure.MinestomAdventure;
 import net.minestom.server.adventure.audience.Audiences;
+import net.minestom.server.component.DataComponent;
 import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
@@ -44,6 +45,7 @@ import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.Material;
 import net.minestom.server.item.component.BlockPredicates;
 import net.minestom.server.item.component.Consumable;
+import net.minestom.server.item.component.Food;
 import net.minestom.server.monitoring.BenchmarkManager;
 import net.minestom.server.monitoring.TickMonitor;
 import net.minestom.server.network.packet.server.common.CustomReportDetailsPacket;
@@ -120,7 +122,9 @@ public class PlayerInit {
             })
             .addListener(PlayerSpawnEvent.class, event -> {
                 final Player player = event.getPlayer();
-                player.setGameMode(GameMode.CREATIVE);
+                player.setGameMode(GameMode.SURVIVAL);
+                player.setFood(3);
+                player.setFoodSaturation(0.0f);
                 player.setPermissionLevel(4);
 
                 player.sendMessage(Component.text("click me for less health ")
@@ -349,7 +353,21 @@ public class PlayerInit {
                 }
             })
             .addListener(PlayerFinishItemUseEvent.class, event -> {
+                Player player = event.getPlayer();
                 if (event.getItemStack().material() == Material.APPLE) {
+                    Food food = event.getItemStack().get(DataComponents.FOOD);
+                    if(food != null){
+                        System.out.println(player.getFood());
+                        System.out.println(food.nutrition());
+                        System.out.println(player.getFoodSaturation());
+                        System.out.println(food.saturationModifier());
+                        System.out.println();
+                        player.setFood(Math.min(player.getFood() + food.nutrition(), 20));
+                        player.setFoodSaturation(Math.min(player.getFoodSaturation() + food.saturationModifier(), 20));
+                        System.out.println(player.getFood());
+                        System.out.println(player.getFoodSaturation());
+                        System.out.println("-------");
+                    }
                     event.getPlayer().sendMessage("yummy yummy apple");
                 }
             })

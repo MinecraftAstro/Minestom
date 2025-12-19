@@ -1,5 +1,6 @@
 package net.minestom.server.entity;
 
+import net.minestom.server.entity.old.EntityCreature;
 import net.minestom.testing.Env;
 import net.minestom.testing.EnvTest;
 import net.minestom.server.coordinate.Pos;

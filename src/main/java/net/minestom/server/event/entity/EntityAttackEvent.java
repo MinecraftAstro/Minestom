@@ -1,11 +1,12 @@
 package net.minestom.server.event.entity;
 
 import net.minestom.server.entity.Entity;
+import net.minestom.server.entity.old.EntityCreature;
 import net.minestom.server.event.trait.EntityInstanceEvent;
 
 /**
  * Called when a player does a left click on an entity or with
- * {@link net.minestom.server.entity.EntityCreature#attack(Entity)}.
+ * {@link EntityCreature#attack(Entity)}.
  */
 public class EntityAttackEvent implements EntityInstanceEvent {
 

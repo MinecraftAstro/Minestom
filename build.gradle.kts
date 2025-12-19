@@ -1,9 +1,9 @@
 plugins {
     id("minestom.java-library")
-    id("maven-publish")
-    id("com.gradleup.shadow") version "9.0.0-rc1"
-
+    id("minestom.publishing")
     alias(libs.plugins.blossom)
+
+    alias(libs.plugins.nmcp.aggregation)
 }
 
 sourceSets {
@@ -22,11 +22,6 @@ sourceSets {
             }
         }
     }
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.register<Task>("determineMinecraftVersion") {
@@ -107,19 +102,16 @@ tasks.register<Test>("testWithAgent") {
     }
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            val jar = tasks.shadowJar.get()
-            jar.archiveClassifier.set("")
-            artifact(jar)
-
-            artifact(tasks.named("sourcesJar").get())
-            artifact(tasks.named("javadocJar").get())
-
-            groupId = "net.minestom.server"
-            artifactId = "minestom"
-            version = "1.0.0"
-        }
+// Publishing configuration below
+nmcpAggregation {
+    centralPortal {
+        username = System.getenv("SONATYPE_USERNAME")
+        password = System.getenv("SONATYPE_PASSWORD")
+        publishingType = "AUTOMATIC"
     }
+}
+
+dependencies {
+    nmcpAggregation(rootProject)
+    nmcpAggregation(project(":testing"))
 }

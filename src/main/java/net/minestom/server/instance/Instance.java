@@ -20,7 +20,7 @@ import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.coordinate.CoordConversion;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.Entity;
-import net.minestom.server.entity.EntityCreature;
+import net.minestom.server.entity.old.EntityCreature;
 import net.minestom.server.entity.ExperienceOrb;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.EventDispatcher;
