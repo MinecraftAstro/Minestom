@@ -5,7 +5,7 @@ plugins {
 }
 
 val minestomDataVersion = libs.minestomData.get().version
-        ?: throw IllegalStateException("unable to determine Minecraft version")
+    ?: throw IllegalStateException("unable to determine Minecraft version")
 val mcVersion = minestomDataVersion.split("-")[0]
 
 publishing.publications.create<MavenPublication>("maven") {

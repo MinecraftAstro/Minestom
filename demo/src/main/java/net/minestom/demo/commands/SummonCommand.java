@@ -10,7 +10,6 @@ import net.minestom.server.command.builder.arguments.minecraft.registry.Argument
 import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.*;
-import net.minestom.server.entity.old.EntityCreature;
 import net.minestom.server.utils.location.RelativeVec;
 
 public class SummonCommand extends Command {
@@ -46,7 +45,7 @@ public class SummonCommand extends Command {
     enum EntityClass {
         BASE(Entity::new),
         LIVING(LivingEntity::new),
-        CREATURE(EntityCreature::new);
+        CREATURE(EntityMob::new);
         private final EntityFactory factory;
 
         EntityClass(EntityFactory factory) {

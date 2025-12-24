@@ -147,6 +147,12 @@ module net.minestom.server {
     exports net.minestom.server.network.plugin;
     exports net.minestom.server.network.socket;
     exports net.minestom.server.particle;
+    exports net.minestom.server.pathfinding;
+    exports net.minestom.server.pathfinding.data;
+    exports net.minestom.server.pathfinding.generator;
+    exports net.minestom.server.pathfinding.generator.types;
+    exports net.minestom.server.pathfinding.options;
+    exports net.minestom.server.pathfinding.utils;
     exports net.minestom.server.ping;
     exports net.minestom.server.potion;
     exports net.minestom.server.recipe;

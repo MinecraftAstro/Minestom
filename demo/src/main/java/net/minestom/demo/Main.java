@@ -51,6 +51,8 @@ public class Main {
         blockManager.registerHandler(TestBlockHandler.INSTANCE.getKey(), () -> TestBlockHandler.INSTANCE);
 
         CommandManager commandManager = MinecraftServer.getCommandManager();
+        commandManager.register(new AroundCommand());
+        commandManager.register(new ComeCommand());
         commandManager.register(new TestCommand());
         commandManager.register(new EntitySelectorCommand());
         commandManager.register(new HealthCommand());
@@ -66,6 +68,7 @@ public class Main {
         commandManager.register(new HorseCommand());
         commandManager.register(new EchoCommand());
         commandManager.register(new SummonCommand());
+        commandManager.register(new SummonRandomCommand());
         commandManager.register(new RemoveCommand());
         commandManager.register(new GiveCommand());
         commandManager.register(new SetBlockCommand());

@@ -245,6 +245,14 @@ public sealed interface Point permits Vec, Pos, BlockVec {
         return distance(point.x(), point.y(), point.z());
     }
 
+    default double manhattanDistance(double x, double y, double z) {
+        return Math.abs(x() - x) + Math.abs(y() - y) + Math.abs(z() - z);
+    }
+
+    default double manhattanDistance(Point point) {
+        return manhattanDistance(point.x(), point.y(), point.z());
+    }
+
     default double chebyshevDistance(double x, double y, double z) {
         return Math.max(Math.abs(x() - x), Math.max(Math.abs(y() - y), Math.abs(z() - z)));
     }

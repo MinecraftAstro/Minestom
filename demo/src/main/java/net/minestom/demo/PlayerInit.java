@@ -122,9 +122,7 @@ public class PlayerInit {
             })
             .addListener(PlayerSpawnEvent.class, event -> {
                 final Player player = event.getPlayer();
-                player.setGameMode(GameMode.SURVIVAL);
-                player.setFood(3);
-                player.setFoodSaturation(0.0f);
+                player.setGameMode(GameMode.CREATIVE);
                 player.setPermissionLevel(4);
 
                 player.sendMessage(Component.text("click me for less health ")
@@ -353,21 +351,7 @@ public class PlayerInit {
                 }
             })
             .addListener(PlayerFinishItemUseEvent.class, event -> {
-                Player player = event.getPlayer();
                 if (event.getItemStack().material() == Material.APPLE) {
-                    Food food = event.getItemStack().get(DataComponents.FOOD);
-                    if(food != null){
-                        System.out.println(player.getFood());
-                        System.out.println(food.nutrition());
-                        System.out.println(player.getFoodSaturation());
-                        System.out.println(food.saturationModifier());
-                        System.out.println();
-                        player.setFood(Math.min(player.getFood() + food.nutrition(), 20));
-                        player.setFoodSaturation(Math.min(player.getFoodSaturation() + food.saturationModifier(), 20));
-                        System.out.println(player.getFood());
-                        System.out.println(player.getFoodSaturation());
-                        System.out.println("-------");
-                    }
                     event.getPlayer().sendMessage("yummy yummy apple");
                 }
             })
