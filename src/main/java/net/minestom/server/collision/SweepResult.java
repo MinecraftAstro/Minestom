@@ -1,7 +1,8 @@
 package net.minestom.server.collision;
 
 public final class SweepResult {
-    public static SweepResult NO_COLLISION  = new SweepResult(Double.MAX_VALUE, 0, 0, 0, null, 0, 0, 0, 0, 0, 0);
+
+    public static SweepResult NO_COLLISION = new SweepResult(Double.MAX_VALUE, 0, 0, 0, null, 0, 0, 0, 0, 0, 0);
 
     double res;
     double normalX, normalY, normalZ;
@@ -29,5 +30,22 @@ public final class SweepResult {
         this.collidedShapeX = collidedShapeX;
         this.collidedShapeY = collidedShapeY;
         this.collidedShapeZ = collidedShapeZ;
+    }
+
+    @Override
+    public String toString() {
+        return "SweepResult{" +
+                "res=" + res +
+                ", normalX=" + normalX +
+                ", normalY=" + normalY +
+                ", normalZ=" + normalZ +
+                ", collidedPositionX=" + collidedPositionX +
+                ", collidedPositionY=" + collidedPositionY +
+                ", collidedPositionZ=" + collidedPositionZ +
+                ", collidedShapeX=" + collidedShapeX +
+                ", collidedShapeY=" + collidedShapeY +
+                ", collidedShapeZ=" + collidedShapeZ +
+                ", collidedShape=" + collidedShape +
+                '}';
     }
 }

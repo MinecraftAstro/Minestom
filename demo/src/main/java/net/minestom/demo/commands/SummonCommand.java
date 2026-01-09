@@ -45,7 +45,10 @@ public class SummonCommand extends Command {
     enum EntityClass {
         BASE(Entity::new),
         LIVING(LivingEntity::new),
-        CREATURE(EntityMob::new);
+        CREATURE(type -> {
+            // TODO: temporary
+            return new EntityMob(type, null);
+        });
         private final EntityFactory factory;
 
         EntityClass(EntityFactory factory) {

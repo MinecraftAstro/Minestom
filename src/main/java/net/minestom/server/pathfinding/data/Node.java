@@ -2,58 +2,36 @@ package net.minestom.server.pathfinding.data;
 
 import net.minestom.server.coordinate.Point;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public final class Node {
+import java.util.Objects;
 
-    private final int x;
-    private final int y;
-    private final int z;
+public final class Node implements Comparable<Node> {
+
+    private final Point point;
 
     private double g;
     private double h;
     private double f;
 
-    private boolean closed;
-
-    private final int hash;
-
-    public Node(int x, int y, int z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.hash = createHash(x, y, z);
-    }
-
-    public Node(int x,
-                int y,
-                int z,
-                double g,
-                double h) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.g = g;
-        this.h = h;
-        this.f = g + h;
-        this.hash = createHash(x, y, z);
-    }
+    private Node parentNode;
+    private final int depth;
 
     public Node(@NotNull Point point,
-                double g,
-                double h) {
-        this(point.blockX(), point.blockY(), point.blockZ(), g, h);
+                @NotNull Point start,
+                @NotNull Point target,
+                int depth) {
+        this.point = point;
+        this.depth = depth;
+        this.g = 0;
+        final double h = target.manhattanDistance(point);
+        this.h = h;
+        this.f = h;
     }
 
-    public int x() {
-        return x;
-    }
-
-    public int y() {
-        return y;
-    }
-
-    public int z() {
-        return z;
+    @NotNull
+    public Point point() {
+        return point;
     }
 
     public double getG() {
@@ -65,56 +43,68 @@ public final class Node {
     }
 
     public double getF() {
-        return f;
+        return g + 2.5 * h;
     }
 
     public void setG(double g) {
         this.g = g;
-        this.f = g + h;
     }
 
     public void setH(double h) {
         this.h = h;
-        this.f = g + h;
     }
 
-    public boolean isClosed() {
-        return closed;
+    @Nullable
+    public Node getParentNode() {
+        return parentNode;
     }
 
-    public void setClosed(boolean closed) {
-        this.closed = closed;
+    public void setParentNode(@Nullable Node parentNode) {
+        this.parentNode = parentNode;
     }
 
-    private int createHash(int x, int y, int z) {
-        return y & 0xFF | (x & 32767) << 8 | (z & 32767) << 24 | (x < 0 ? Integer.MIN_VALUE : 0) | (z < 0 ? 32768 : 0);
+    public int depth() {
+        return depth;
+    }
+
+    @Override
+    public int compareTo(@NotNull Node other) {
+        // First compare by F-cost (G-cost + H-cost)
+        int fCostComparison = Double.compare(this.getF(), other.getF());
+        if (fCostComparison != 0) {
+            return fCostComparison;
+        }
+
+        // If F-costs are equal, compare by heuristic value
+        int heuristicComparison = Double.compare(this.getH(), other.getH());
+        if (heuristicComparison != 0) {
+            return heuristicComparison;
+        }
+
+        // If heuristics are equal, compare by depth
+        return Integer.compare(this.depth, other.depth);
     }
 
     @Override
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
 
-        Node node = (Node) obj;
-        return x == node.x && y == node.y && z == node.z && hash == node.hash;
+        Node that = (Node) obj;
+        return point.blockX() == that.point.blockX()
+                && point.blockY() == that.point.blockY()
+                && point.blockZ() == that.point.blockZ();
     }
 
     @Override
     public int hashCode() {
-        return hash;
-    }
-
-    // useful for debugging
-    @Override
-    public String toString() {
-        return "Node{" +
-                "x=" + x +
-                ", y=" + y +
-                ", z=" + z +
-                ", g=" + g +
-                ", h=" + h +
-                ", f=" + f +
-                ", hash=" + hash +
-                '}';
+        int x = point.blockX();
+        int y = point.blockY();
+        int z = point.blockZ();
+        int result = x;
+        result = 31 * result + y;
+        result = 31 * result + z;
+        return result;
     }
 
     public enum Type {

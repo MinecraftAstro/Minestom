@@ -19,6 +19,7 @@ module net.minestom.server {
     requires jdk.jfr;
     requires java.desktop;
     requires java.management;
+    requires com.google.common;
 
     // EXPORTS
     exports net.minestom.server;
@@ -72,6 +73,7 @@ module net.minestom.server {
     exports net.minestom.server.entity.old.pathfinding;
     exports net.minestom.server.entity.old.pathfinding.followers;
     exports net.minestom.server.entity.old.pathfinding.generators;
+    exports net.minestom.server.entity.path;
     exports net.minestom.server.entity.vehicle;
     exports net.minestom.server.event;
     exports net.minestom.server.event.book;
@@ -149,8 +151,8 @@ module net.minestom.server {
     exports net.minestom.server.particle;
     exports net.minestom.server.pathfinding;
     exports net.minestom.server.pathfinding.data;
-    exports net.minestom.server.pathfinding.generator;
-    exports net.minestom.server.pathfinding.generator.types;
+    exports net.minestom.server.pathfinding.validation;
+    exports net.minestom.server.pathfinding.validation.types;
     exports net.minestom.server.pathfinding.options;
     exports net.minestom.server.pathfinding.utils;
     exports net.minestom.server.ping;

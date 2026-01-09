@@ -6,8 +6,20 @@ import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.EntityMob;
 import net.minestom.server.entity.Player;
 import net.minestom.server.instance.Instance;
+import net.minestom.server.particle.Particle;
+import net.minestom.server.pathfinding.Pathfinder;
+import net.minestom.server.pathfinding.data.Path;
+import net.minestom.server.pathfinding.options.PathfinderOptions;
+import net.minestom.server.pathfinding.utils.PathUtils;
+import net.minestom.server.pathfinding.validation.types.BasicNodeValidator;
 
 public class ComeCommand extends Command {
+
+    private static final Pathfinder PATHFINDER = new Pathfinder(
+            new PathfinderOptions.Builder()
+                    .nodeValidator(new BasicNodeValidator())
+                    .build()
+    );
 
     public ComeCommand() {
         super("come");
@@ -17,14 +29,37 @@ public class ComeCommand extends Command {
             final Player player = (Player) sender;
             final Instance currentInstance = player.getInstance();
 
+            int successAmount = 0;
+            long startTime = System.currentTimeMillis();
             for (Entity entity : currentInstance.getEntities()) {
                 // only EntityCreatures can pathfind
                 if (!(entity instanceof EntityMob))
                     continue;
 
+                final Path path = PATHFINDER.findPath(
+                        entity.getPosition(),
+                        player.getPosition(),
+                        currentInstance,
+                        entity.getBoundingBox()
+                ).join();
+
+                if(path.state() == Path.State.FOUND) {
+                    successAmount++;
+                }
+
+//                System.out.println(path.state());
+//                System.out.println(path.start());
+//                System.out.println(path.end());
+//                System.out.println(path.collect().size());
+
+                PathUtils.drawPath(path, Particle.COMPOSTER);
+
                 // TODO: pathfinding
                 // TODO: debug information
             }
+            long endTime = System.currentTimeMillis();
+
+            System.out.println("Took " + (endTime - startTime) + "ms to find " + successAmount + " paths.");
         });
     }
 }

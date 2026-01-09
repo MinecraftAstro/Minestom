@@ -157,19 +157,6 @@ public final class Navigator {
         Point currentTarget = path.getCurrent();
         Point nextTarget = path.getNext();
 
-        // Repath
-        if (currentTarget == null || path.getCurrentType() == PNode.Type.REPATH || path.getCurrentType() == null) {
-            if (computingPath != null && computingPath.getState() == PPath.State.CALCULATING) return;
-
-            computingPath = PathGenerator.generate(entity.getInstance(),
-                    entity.getPosition(),
-                    goalPosition.asPos(),
-                    minimumDistance, path.maxDistance(),
-                    path.pathVariance(), entity.getBoundingBox(), this.entity.isOnGround(), nodeGenerator, null);
-
-            return;
-        }
-
         if (nextTarget == null) {
             path.setState(PPath.State.INVALID);
             return;
@@ -230,20 +217,6 @@ public final class Navigator {
 
     public void setNodeGenerator(Supplier<NodeGenerator> nodeGenerator) {
         this.nodeGenerator = nodeGenerator.get();
-    }
-
-    /**
-     * Visualise path for debugging
-     *
-     * @param path the path to draw
-     */
-    private void drawPath(PPath path) {
-        if (path == null) return;
-
-        for (PNode point : path.getNodes()) {
-            var packet = new ParticlePacket(Particle.COMPOSTER, point.x(), point.y() + 0.5, point.z(), 0, 0, 0, 0, 1);
-            entity.sendPacketToViewers(packet);
-        }
     }
 
     private static boolean isSameBlock(PNode pNode, Pos position) {

@@ -43,6 +43,7 @@ dependencies {
 
     // Performance/data structures
     implementation(libs.fastutil)
+    implementation(libs.guava)
     implementation(libs.bundles.flare)
     api(libs.gson)
     implementation(libs.jcTools)

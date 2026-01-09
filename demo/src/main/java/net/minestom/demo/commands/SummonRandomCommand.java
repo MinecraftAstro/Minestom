@@ -65,7 +65,7 @@ public class SummonRandomCommand extends Command {
             final Pos spawnPos = new Pos(randomX, highestBlockY + 1, randomZ);
 
             final Entity entity = commandContext.get(entityClass).instantiate(commandContext.get(this.entity));
-            entity.setInstance(((Player) commandSender).getInstance(), spawnPos);
+            entity.setInstance(((Player) commandSender).getInstance(), spawnPos).join();
         }
     }
 
@@ -73,7 +73,10 @@ public class SummonRandomCommand extends Command {
     enum EntityClass {
         BASE(Entity::new),
         LIVING(LivingEntity::new),
-        CREATURE(EntityMob::new);
+        CREATURE(type -> {
+            // TODO: temporary
+            return new EntityMob(type, null);
+        });
         private final EntityFactory factory;
 
         EntityClass(EntityFactory factory) {

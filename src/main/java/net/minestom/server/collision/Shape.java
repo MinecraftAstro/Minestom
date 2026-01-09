@@ -5,6 +5,7 @@ import net.minestom.server.entity.Entity;
 import net.minestom.server.instance.block.BlockFace;
 
 public interface Shape {
+
     boolean isOccluded(Shape shape, BlockFace face);
 
     /**

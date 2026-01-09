@@ -1,9 +1,11 @@
 package net.minestom.server.pathfinding.options;
 
-import net.minestom.server.pathfinding.generator.NodeGenerator;
-import net.minestom.server.pathfinding.generator.types.WalkNodeGenerator;
+import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.utils.validate.Check;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.List;
 
 // used to initialize a path generator call in the pathfinder
 public final class PathfinderOptions {
@@ -14,31 +16,48 @@ public final class PathfinderOptions {
     // completion callback (what happens when the path is completed)
     // node generator (the generator we should use when generating nodes for paths)
 
-    private final WorldType worldType;
-    private final NodeGenerator nodeGenerator;
+    // TODO: option to load all chunks needed to generate path?
+
+    private final boolean async;
+    private final List<NodeValidator> nodeValidators;
+    private final int maxIterations;
 
     private final double completionRange;
     private final Runnable completionCallback;
 
-    private PathfinderOptions(@NotNull WorldType worldType,
-                              @NotNull NodeGenerator nodeGenerator,
+    private final int bloomFilterSize;
+    private final double bloomFilterFpp;
+
+    private PathfinderOptions(boolean async,
+                              @NotNull List<NodeValidator> nodeValidators,
+                              int maxIterations,
                               double completionRange,
-                              @NotNull Runnable completionCallback) {
-        this.worldType = worldType;
-        this.nodeGenerator = nodeGenerator;
-        Check.stateCondition(completionRange > 0, "Pathfinding completion range must be greater than 0.");
+                              @NotNull Runnable completionCallback,
+                              int bloomFilterSize,
+                              double bloomFilterFpp) {
+        this.async = async;
+        this.nodeValidators = nodeValidators;
+        Check.stateCondition(maxIterations <= 0, "Pathfinding max iterations must be greater than 0.");
+        this.maxIterations = maxIterations;
+        Check.stateCondition(completionRange <= 0, "Pathfinding completion range must be greater than 0.");
         this.completionRange = completionRange;
         this.completionCallback = completionCallback;
+        Check.stateCondition(bloomFilterSize <= 0, "Pathfinding bloom filter size must be greater than 0.");
+        this.bloomFilterSize = bloomFilterSize;
+        this.bloomFilterFpp = bloomFilterFpp;
+    }
+
+    public boolean async() {
+        return async;
     }
 
     @NotNull
-    public WorldType worldType() {
-        return worldType;
+    public List<NodeValidator> nodeValidators() {
+        return nodeValidators;
     }
 
-    @NotNull
-    public NodeGenerator nodeGenerator() {
-        return nodeGenerator;
+    public int maxIterations() {
+        return maxIterations;
     }
 
     public double completionRange() {
@@ -50,48 +69,57 @@ public final class PathfinderOptions {
         return completionCallback;
     }
 
-    public enum WorldType {
+    public int bloomFilterSize() {
+        return bloomFilterSize;
+    }
 
-        /**
-         * A static world means that the world will not change (block removals/additions) while pathfinding is performed.
-         * This isn't a strict requirement that is imposed, but just beware that pathfinding could break (might not be able to complete a path).
-         * Without having to worry about the world changing we are able to simplify and optimize some portions of the pathfinding.
-         */
-        STATIC,
-
-        /**
-         * A dynamic world means that the world will change (block removals/additions) while pathfinding is performed.
-         * Some extra logic will need to be implemented during entity path following to make sure that paths can be completed.
-         * This is the default for pathfinding.
-         */
-        DYNAMIC
+    public double bloomFilterFpp() {
+        return bloomFilterFpp;
     }
 
     public static final class Builder {
 
-        private WorldType worldType;
-        private NodeGenerator nodeGenerator;
+        private boolean async;
+        private List<NodeValidator> nodeValidators;
+        private int maxIterations;
 
         private double completionRange;
         private Runnable completionCallback;
 
+        private int bloomFilterSize;
+        private double bloomFilterFpp;
+
         public Builder() {
-            this.worldType = WorldType.DYNAMIC;
-            this.nodeGenerator = new WalkNodeGenerator();
+            this.async = false;
+            this.nodeValidators = new ArrayList<>();
+            this.maxIterations = 100_000_000;
             this.completionRange = 1.0D;
             this.completionCallback = () -> {
             };
+            this.bloomFilterSize = 1024;
+            this.bloomFilterFpp = 0.01D;
         }
 
         @NotNull
-        public Builder worldType(@NotNull WorldType worldType) {
-            this.worldType = worldType;
+        public Builder async(boolean async) {
+            this.async = async;
             return this;
         }
 
         @NotNull
-        public Builder nodeGenerator(@NotNull NodeGenerator nodeGenerator) {
-            this.nodeGenerator = nodeGenerator;
+        public Builder nodeValidator(@NotNull NodeValidator nodeValidator) {
+            this.nodeValidators.add(nodeValidator);
+            return this;
+        }
+
+        public Builder nodeValidators(@NotNull List<NodeValidator> nodeValidators) {
+            this.nodeValidators = nodeValidators;
+            return this;
+        }
+
+        @NotNull
+        public Builder maxIterations(int maxIterations) {
+            this.maxIterations = maxIterations;
             return this;
         }
 
@@ -108,8 +136,28 @@ public final class PathfinderOptions {
         }
 
         @NotNull
+        public Builder bloomFilterSize(int bloomFilterSize) {
+            this.bloomFilterSize = bloomFilterSize;
+            return this;
+        }
+
+        @NotNull
+        public Builder bloomFilterFpp(double bloomFilterFpp) {
+            this.bloomFilterFpp = bloomFilterFpp;
+            return this;
+        }
+
+        @NotNull
         public PathfinderOptions build() {
-            return new PathfinderOptions(worldType, nodeGenerator, completionRange, completionCallback);
+            return new PathfinderOptions(
+                    async,
+                    List.copyOf(nodeValidators),
+                    maxIterations,
+                    completionRange,
+                    completionCallback,
+                    bloomFilterSize,
+                    bloomFilterFpp
+            );
         }
     }
 }

@@ -7,6 +7,7 @@ import net.minestom.server.instance.block.Block;
 import org.jetbrains.annotations.Nullable;
 
 public final class PhysicsUtils {
+
     /**
      * Simulate the entity's movement physics
      * <p>
