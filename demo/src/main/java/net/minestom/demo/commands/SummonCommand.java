@@ -47,7 +47,7 @@ public class SummonCommand extends Command {
         LIVING(LivingEntity::new),
         CREATURE(type -> {
             // TODO: temporary
-            return new EntityMob(type, null);
+            return new EntityMob(type, ComeCommand.PATHFINDER);
         });
         private final EntityFactory factory;
 

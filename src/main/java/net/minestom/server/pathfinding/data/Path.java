@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 public final class Path implements Iterable<Point> {
 
@@ -54,10 +55,10 @@ public final class Path implements Iterable<Point> {
     }
 
     @NotNull
-    public Collection<Point> collect() {
-        final Collection<Point> collection = new ArrayList<>(length);
-        positions.forEach(collection::add);
-        return collection;
+    public List<Point> list() {
+        final List<Point> list = new ArrayList<>(length);
+        positions.forEach(list::add);
+        return list;
     }
 
     public enum State {

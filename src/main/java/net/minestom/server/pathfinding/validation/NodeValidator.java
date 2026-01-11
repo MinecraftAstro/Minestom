@@ -7,7 +7,8 @@ import org.jetbrains.annotations.NotNull;
 
 public interface NodeValidator {
 
-    boolean isValid(@NotNull Node oldNode,
+    @NotNull
+    ValidationStatus checkValidity(@NotNull Node oldNode,
                     @NotNull Node newNode,
                     @NotNull Instance instance,
                     @NotNull BoundingBox boundingBox);

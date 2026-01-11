@@ -14,6 +14,7 @@ import net.minestom.server.pathfinding.data.Path;
 import net.minestom.server.pathfinding.data.RegionKey;
 import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.validation.NodeValidator;
+import net.minestom.server.pathfinding.validation.ValidationStatus;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -54,6 +55,8 @@ public class Pathfinder {
             new Vec(1, 0, 1)
     );
 
+    // TODO: get rid of this and just have it static?
+    // TODO: or separate logic cause we may want to have different completion Runnables for a unique pathfinder
     private final PathfinderOptions options;
 
     public Pathfinder(@NotNull PathfinderOptions options) {
@@ -63,12 +66,13 @@ public class Pathfinder {
     public CompletableFuture<Path> findPath(@NotNull Point start,
                                             @NotNull Point target,
                                             @NotNull Instance instance,
-                                            @NotNull BoundingBox boundingBox) {
+                                            @NotNull BoundingBox boundingBox,
+                                            double completionRange) {
         if(options.async()) {
             return CompletableFuture.supplyAsync(() ->
-                    evaluatePath(start, target, instance, boundingBox), PATHING_EXECUTOR_SERVICE);
+                    evaluatePath(start, target, instance, boundingBox, completionRange), PATHING_EXECUTOR_SERVICE);
         } else {
-            return CompletableFuture.completedFuture(evaluatePath(start, target, instance, boundingBox));
+            return CompletableFuture.completedFuture(evaluatePath(start, target, instance, boundingBox, completionRange));
         }
     }
 
@@ -76,7 +80,8 @@ public class Pathfinder {
     private Path evaluatePath(@NotNull Point start,
                                       @NotNull Point target,
                                       @NotNull Instance instance,
-                                      @NotNull BoundingBox boundingBox) {
+                                      @NotNull BoundingBox boundingBox,
+                              double completionRange) {
         final Node startNode = new Node(start, start, target, 0);
 
         // make a minimum heap priority queue and sort by the lowest F value
@@ -104,7 +109,7 @@ public class Pathfinder {
             // TODO: path length limit
 
             // check if we have finished pathing
-            if (currentNode.point().manhattanDistance(target) <= options.completionRange()) {
+            if (currentNode.point().manhattanDistance(target) <= completionRange) {
                 return reconstructPath(start, target, currentNode);
             }
 
@@ -266,7 +271,29 @@ public class Pathfinder {
 
             // check if the step from the current node to the neighbor node is valid
             for (NodeValidator nodeValidator : options.nodeValidators()) {
-                if (!nodeValidator.isValid(currentNode, neighborNode, instance, boundingBox)) {
+                final ValidationStatus validationStatus = nodeValidator.checkValidity(currentNode, neighborNode, instance, boundingBox);
+
+                // if the node isn't valid at all, we'll just skip it and continue to the next one
+                if (!validationStatus.valid())
+                    continue outer;
+
+                // if the node is valid, and we have an updated node then we must insert it into the open set since it means we either jumped or fell
+                final Node updatedNode = validationStatus.updatedNode();
+                if (updatedNode != null) {
+                    System.out.println("Updated node!");
+                    updatedNode.setParentNode(currentNode);
+
+                    final double g = currentNode.getG() + 1.0D;
+                    updatedNode.setG(g);
+
+                    final double heapKey = calculateHeapKey(updatedNode, updatedNode.getF());
+                    final long updatedPackedPoint = RegionKey.pack(updatedNode.point());
+                    openSet.insertOrUpdate(updatedPackedPoint, heapKey);
+                    openSetNodes.put(updatedPackedPoint, updatedNode);
+
+                    // TODO: for debug, remove me
+                    instance.setBlock(updatedNode.point().sub(0, 1, 0), Block.RED_WOOL);
+
                     continue outer;
                 }
             }
@@ -279,6 +306,7 @@ public class Pathfinder {
             openSet.insertOrUpdate(packedPoint, heapKey);
             openSetNodes.put(packedPoint, neighborNode);
 
+            // TODO: for debug, remove me
             instance.setBlock(neighborPoint.sub(0, 1, 0), Block.GREEN_WOOL);
         }
     }
@@ -293,5 +321,10 @@ public class Pathfinder {
             PATHING_EXECUTOR_SERVICE.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    @NotNull
+    public PathfinderOptions options() {
+        return options;
     }
 }

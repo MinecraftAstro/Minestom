@@ -22,26 +22,18 @@ public final class PathfinderOptions {
     private final List<NodeValidator> nodeValidators;
     private final int maxIterations;
 
-    private final double completionRange;
-    private final Runnable completionCallback;
-
     private final int bloomFilterSize;
     private final double bloomFilterFpp;
 
     private PathfinderOptions(boolean async,
                               @NotNull List<NodeValidator> nodeValidators,
                               int maxIterations,
-                              double completionRange,
-                              @NotNull Runnable completionCallback,
                               int bloomFilterSize,
                               double bloomFilterFpp) {
         this.async = async;
         this.nodeValidators = nodeValidators;
         Check.stateCondition(maxIterations <= 0, "Pathfinding max iterations must be greater than 0.");
         this.maxIterations = maxIterations;
-        Check.stateCondition(completionRange <= 0, "Pathfinding completion range must be greater than 0.");
-        this.completionRange = completionRange;
-        this.completionCallback = completionCallback;
         Check.stateCondition(bloomFilterSize <= 0, "Pathfinding bloom filter size must be greater than 0.");
         this.bloomFilterSize = bloomFilterSize;
         this.bloomFilterFpp = bloomFilterFpp;
@@ -58,15 +50,6 @@ public final class PathfinderOptions {
 
     public int maxIterations() {
         return maxIterations;
-    }
-
-    public double completionRange() {
-        return completionRange;
-    }
-
-    @NotNull
-    public Runnable completionCallback() {
-        return completionCallback;
     }
 
     public int bloomFilterSize() {
@@ -153,8 +136,6 @@ public final class PathfinderOptions {
                     async,
                     List.copyOf(nodeValidators),
                     maxIterations,
-                    completionRange,
-                    completionCallback,
                     bloomFilterSize,
                     bloomFilterFpp
             );

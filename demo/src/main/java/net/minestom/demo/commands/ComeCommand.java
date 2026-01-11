@@ -15,7 +15,7 @@ import net.minestom.server.pathfinding.validation.types.BasicNodeValidator;
 
 public class ComeCommand extends Command {
 
-    private static final Pathfinder PATHFINDER = new Pathfinder(
+    public static final Pathfinder PATHFINDER = new Pathfinder(
             new PathfinderOptions.Builder()
                     .nodeValidator(new BasicNodeValidator())
                     .build()
@@ -33,15 +33,21 @@ public class ComeCommand extends Command {
             long startTime = System.currentTimeMillis();
             for (Entity entity : currentInstance.getEntities()) {
                 // only EntityCreatures can pathfind
-                if (!(entity instanceof EntityMob))
+                if (!(entity instanceof EntityMob entityMob))
                     continue;
 
                 final Path path = PATHFINDER.findPath(
                         entity.getPosition(),
                         player.getPosition(),
                         currentInstance,
-                        entity.getBoundingBox()
+                        entity.getBoundingBox(),
+                        1.0D
                 ).join();
+
+                System.out.println("Path Size: " + path.list().size());
+
+//                entityMob.setPath(player.getPosition(), 1.0D, () ->
+//                        player.sendMessage("Finished pathing."));
 
                 if(path.state() == Path.State.FOUND) {
                     successAmount++;

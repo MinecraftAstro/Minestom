@@ -17,6 +17,11 @@ public final class Node implements Comparable<Node> {
     private Node parentNode;
     private final int depth;
 
+    private final Point start;
+    private final Point target;
+
+    private Node.Type type;
+
     public Node(@NotNull Point point,
                 @NotNull Point start,
                 @NotNull Point target,
@@ -27,6 +32,9 @@ public final class Node implements Comparable<Node> {
         final double h = target.manhattanDistance(point);
         this.h = h;
         this.f = h;
+        this.start = start;
+        this.target = target;
+        this.type = Type.EMPTY;
     }
 
     @NotNull
@@ -65,6 +73,25 @@ public final class Node implements Comparable<Node> {
 
     public int depth() {
         return depth;
+    }
+
+    @NotNull
+    public Point start() {
+        return start;
+    }
+
+    @NotNull
+    public Point target() {
+        return target;
+    }
+
+    public void setType(@NotNull Type type) {
+        this.type = type;
+    }
+
+    @NotNull
+    public Type getType() {
+        return type;
     }
 
     @Override
@@ -107,11 +134,13 @@ public final class Node implements Comparable<Node> {
         return result;
     }
 
+    // TODO: we only care about steps and jumps for the PathFollower
     public enum Type {
 
-        /**
-         * Indicates that this
-         */
-        OPEN
+        EMPTY,
+
+        STEP,
+
+        JUMP
     }
 }

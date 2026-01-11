@@ -1,4 +1,4 @@
-package net.minestom.server.pathfinding.mob;
+package net.minestom.server.pathfinding.context;
 
 public final class MobContext {
 
