@@ -2,12 +2,12 @@ package net.minestom.server.pathfinding;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import net.minestom.server.collision.BoundingBox;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Vec;
-import net.minestom.server.instance.Instance;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.collections.BinaryMinimumHeap;
+import net.minestom.server.pathfinding.context.MobContext;
+import net.minestom.server.pathfinding.context.PathfindingContext;
 import net.minestom.server.pathfinding.data.GridRegionData;
 import net.minestom.server.pathfinding.data.Node;
 import net.minestom.server.pathfinding.data.Path;
@@ -16,24 +16,15 @@ import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.pathfinding.validation.ValidationStatus;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 public class Pathfinder {
-
-    private static final ExecutorService PATHING_EXECUTOR_SERVICE =
-            Executors.newWorkStealingPool(Math.max(1, Runtime.getRuntime().availableProcessors() / 2));
-
-    static {
-        Runtime.getRuntime().addShutdownHook(new Thread(Pathfinder::shutdownExecutor));
-    }
 
     private static final double TIE_BREAKER_WEIGHT = 1e-6;
 
@@ -55,8 +46,6 @@ public class Pathfinder {
             new Vec(1, 0, 1)
     );
 
-    // TODO: get rid of this and just have it static?
-    // TODO: or separate logic cause we may want to have different completion Runnables for a unique pathfinder
     private final PathfinderOptions options;
 
     public Pathfinder(@NotNull PathfinderOptions options) {
@@ -65,22 +54,20 @@ public class Pathfinder {
 
     public CompletableFuture<Path> findPath(@NotNull Point start,
                                             @NotNull Point target,
-                                            @NotNull Instance instance,
-                                            @NotNull BoundingBox boundingBox,
+                                            @NotNull MobContext mobContext,
                                             double completionRange) {
-        if(options.async()) {
+        if (options.async()) {
             return CompletableFuture.supplyAsync(() ->
-                    evaluatePath(start, target, instance, boundingBox, completionRange), PATHING_EXECUTOR_SERVICE);
+                    evaluatePath(start, target, mobContext, completionRange), PathfinderScheduler.PATHING_EXECUTOR_SERVICE);
         } else {
-            return CompletableFuture.completedFuture(evaluatePath(start, target, instance, boundingBox, completionRange));
+            return CompletableFuture.completedFuture(evaluatePath(start, target, mobContext, completionRange));
         }
     }
 
     @NotNull
     private Path evaluatePath(@NotNull Point start,
-                                      @NotNull Point target,
-                                      @NotNull Instance instance,
-                                      @NotNull BoundingBox boundingBox,
+                              @NotNull Point target,
+                              @NotNull MobContext mobContext,
                               double completionRange) {
         final Node startNode = new Node(start, start, target, 0);
 
@@ -89,7 +76,10 @@ public class Pathfinder {
         final Long2ObjectMap<GridRegionData> visitedRegions = new Long2ObjectOpenHashMap<>();
         final Long2ObjectMap<Node> openSetNodes = new Long2ObjectOpenHashMap<>();
 
-        insertStartNode(startNode, openSet, openSetNodes);
+        final PathfindingContext pathfindingContext = new PathfindingContext(openSet, visitedRegions, openSetNodes);
+
+        // insert the starting node
+        insertNode(startNode, pathfindingContext);
 
         int currentDepth = 0;
         Node bestFallbackNode = startNode;
@@ -99,8 +89,8 @@ public class Pathfinder {
 
             // TODO: check if find path is cancelled
 
-            Node currentNode = extractBestNode(openSet, openSetNodes);
-            markNodeAsExpanded(currentNode, visitedRegions, openSetNodes);
+            Node currentNode = extractBestNode(pathfindingContext);
+            markNodeAsExpanded(currentNode, pathfindingContext);
 
             if (currentNode.getH() < bestFallbackNode.getH()) {
                 bestFallbackNode = currentNode;
@@ -113,7 +103,7 @@ public class Pathfinder {
                 return reconstructPath(start, target, currentNode);
             }
 
-            processNeighbors(start, target, currentNode, openSet, openSetNodes, visitedRegions, boundingBox, instance);
+            processNeighbors(start, target, currentNode, pathfindingContext, mobContext);
         }
 
         // TODO: fail or best effort path
@@ -151,42 +141,46 @@ public class Pathfinder {
         return heapKey;
     }
 
-    private void insertStartNode(@NotNull Node startNode,
-                                 @NotNull BinaryMinimumHeap openSet,
-                                 Long2ObjectMap<Node> openSetNodes) {
-        // TODO: do we need a try-catch here?
-        double startKey;
-        try {
-            startKey = calculateHeapKey(startNode, startNode.getF());
-        } catch (Throwable ignored) {
-            startKey = startNode.getF();
-        }
-
-        final long packedPoint = RegionKey.pack(startNode.point());
-        openSet.insertOrUpdate(packedPoint, startKey);
-        openSetNodes.put(packedPoint, startNode);
+    private void insertNode(@NotNull Node startNode,
+                            @NotNull PathfindingContext pathfindingContext) {
+        insertNode(null, startNode, pathfindingContext);
     }
 
-    private Node extractBestNode(@NotNull BinaryMinimumHeap openSet,
-                                 Long2ObjectMap<Node> openSetNodes) {
-        final long packedPoint = openSet.extractMin();
-        final Node node = openSetNodes.get(packedPoint);
-        openSetNodes.remove(packedPoint);
+    private void insertNode(@Nullable Node parentNode,
+                            @NotNull Node newNode,
+                            @NotNull PathfindingContext pathfindingContext) {
+        if (parentNode != null) {
+            newNode.setParentNode(parentNode);
+
+            // TODO: more advanced cost processing
+            final double g = parentNode.getG() + 1.0D;
+            newNode.setG(g);
+        }
+
+        final double heapKey = calculateHeapKey(newNode, newNode.getF());
+        final long packedPoint = RegionKey.pack(newNode.point());
+        pathfindingContext.openSet().insertOrUpdate(packedPoint, heapKey);
+        pathfindingContext.openSetNodes().put(packedPoint, newNode);
+    }
+
+    private Node extractBestNode(@NotNull PathfindingContext pathfindingContext) {
+        final long packedPoint = pathfindingContext.openSet().extractMin();
+        final Node node = pathfindingContext.openSetNodes().get(packedPoint);
+        pathfindingContext.openSetNodes().remove(packedPoint);
 
         return node;
     }
 
     private void markNodeAsExpanded(@NotNull Node node,
-                                    Long2ObjectMap<GridRegionData> visitedRegions,
-                                    Long2ObjectMap<Node> openSetNodes) {
+                                    @NotNull PathfindingContext pathfindingContext) {
         final Point point = node.point();
 
         final long packedPoint = RegionKey.pack(point);
-        openSetNodes.remove(packedPoint);
+        pathfindingContext.openSetNodes().remove(packedPoint);
 
         // TODO: reopen closed nodes
 
-        final GridRegionData regionData = getOrCreateRegionData(point, visitedRegions);
+        final GridRegionData regionData = getOrCreateRegionData(point, pathfindingContext);
         regionData.getBloomFilter().put(point);
         regionData.getRegionalExaminedPositions().add(packedPoint);
     }
@@ -194,7 +188,7 @@ public class Pathfinder {
     private void updateExistingNode(@NotNull Node existingNode,
                                     long packedPoint,
                                     @NotNull Node currentNode,
-                                    @NotNull BinaryMinimumHeap openSet) {
+                                    @NotNull PathfindingContext pathfindingContext) {
         final double newG = currentNode.getG() + 1.0D;
         final double tol = Math.ulp(Math.max(Math.abs(newG), Math.abs(existingNode.getG())));
         if (newG + tol >= existingNode.getG()) {
@@ -207,11 +201,11 @@ public class Pathfinder {
         existingNode.setG(newG);
 
         final double newKey = calculateHeapKey(existingNode, existingNode.getF());
-        final double oldKey = openSet.getCost(packedPoint);
+        final double oldKey = pathfindingContext.openSet().getCost(packedPoint);
 
         // We only call the heap once the key actually decreased
         if (newKey + Math.ulp(newKey) < oldKey) {
-            openSet.insertOrUpdate(packedPoint, newKey);
+            pathfindingContext.openSet().insertOrUpdate(packedPoint, newKey);
         } else if (Math.abs(newKey - oldKey) <= Math.ulp(newKey)) {
             /*
              * Sometimes a tiny nudging helps to maintain consistency,
@@ -219,12 +213,12 @@ public class Pathfinder {
              *
              * Since our heap strictly checks <, we can force it here
              */
-            openSet.insertOrUpdate(packedPoint, oldKey - Math.ulp(oldKey));
+            pathfindingContext.openSet().insertOrUpdate(packedPoint, oldKey - Math.ulp(oldKey));
         }
     }
 
     private GridRegionData getOrCreateRegionData(@NotNull Point point,
-                                                 Long2ObjectMap<GridRegionData> visitedRegions) {
+                                                 @NotNull PathfindingContext pathfindingContext) {
         final int cellSize = 12;
 
         final int rX = Math.floorDiv(point.blockX(), cellSize);
@@ -233,32 +227,29 @@ public class Pathfinder {
 
         final long regionKey = RegionKey.pack(rX, rY, rZ);
 
-        return visitedRegions.computeIfAbsent(regionKey,
+        return pathfindingContext.visitedRegions().computeIfAbsent(regionKey,
                 (long k) -> new GridRegionData(options));
     }
 
     private void processNeighbors(@NotNull Point start,
                                   @NotNull Point target,
                                   @NotNull Node currentNode,
-                                  @NotNull BinaryMinimumHeap openSet,
-                                  Long2ObjectMap<Node> openSetNodes,
-                                  Long2ObjectMap<GridRegionData> visitedRegions,
-                                  BoundingBox boundingBox,
-                                  @NotNull Instance instance) {
+                                  @NotNull PathfindingContext pathfindingContext,
+                                  @NotNull MobContext mobContext) {
         outer:
         for (Vec offset : BASIC_MOVEMENT) {
             final Point neighborPoint = currentNode.point().add(offset);
             final long packedPoint = RegionKey.pack(neighborPoint);
 
             // chck if the neighbor is in the open set
-            if (openSet.contains(packedPoint)) {
-                final Node existingNode = openSetNodes.get(packedPoint);
-                updateExistingNode(existingNode, packedPoint, currentNode, openSet);
+            if (pathfindingContext.openSet().contains(packedPoint)) {
+                final Node existingNode = pathfindingContext.openSetNodes().get(packedPoint);
+                updateExistingNode(existingNode, packedPoint, currentNode, pathfindingContext);
                 continue;
             }
 
             // check if the neighbor is in the closed set
-            final GridRegionData regionData = getOrCreateRegionData(neighborPoint, visitedRegions);
+            final GridRegionData regionData = getOrCreateRegionData(neighborPoint, pathfindingContext);
             if (regionData.getBloomFilter().mightContain(neighborPoint)
                     && regionData.getRegionalExaminedPositions().contains(packedPoint)) {
                 // TODO: reopen node
@@ -271,7 +262,7 @@ public class Pathfinder {
 
             // check if the step from the current node to the neighbor node is valid
             for (NodeValidator nodeValidator : options.nodeValidators()) {
-                final ValidationStatus validationStatus = nodeValidator.checkValidity(currentNode, neighborNode, instance, boundingBox);
+                final ValidationStatus validationStatus = nodeValidator.checkValidity(currentNode, neighborNode, mobContext);
 
                 // if the node isn't valid at all, we'll just skip it and continue to the next one
                 if (!validationStatus.valid())
@@ -281,50 +272,19 @@ public class Pathfinder {
                 final Node updatedNode = validationStatus.updatedNode();
                 if (updatedNode != null) {
                     System.out.println("Updated node!");
-                    updatedNode.setParentNode(currentNode);
-
-                    final double g = currentNode.getG() + 1.0D;
-                    updatedNode.setG(g);
-
-                    final double heapKey = calculateHeapKey(updatedNode, updatedNode.getF());
-                    final long updatedPackedPoint = RegionKey.pack(updatedNode.point());
-                    openSet.insertOrUpdate(updatedPackedPoint, heapKey);
-                    openSetNodes.put(updatedPackedPoint, updatedNode);
+                    insertNode(currentNode, updatedNode, pathfindingContext);
 
                     // TODO: for debug, remove me
-                    instance.setBlock(updatedNode.point().sub(0, 1, 0), Block.RED_WOOL);
+                    mobContext.instance().setBlock(updatedNode.point().sub(0, 1, 0), Block.RED_WOOL);
 
                     continue outer;
                 }
             }
 
-            // TODO: more advanced cost processing
-            final double g = currentNode.getG() + 1.0D;
-            neighborNode.setG(g);
-
-            final double heapKey = calculateHeapKey(neighborNode, neighborNode.getF());
-            openSet.insertOrUpdate(packedPoint, heapKey);
-            openSetNodes.put(packedPoint, neighborNode);
+            insertNode(currentNode, neighborNode, pathfindingContext);
 
             // TODO: for debug, remove me
-            instance.setBlock(neighborPoint.sub(0, 1, 0), Block.GREEN_WOOL);
+            mobContext.instance().setBlock(neighborPoint.sub(0, 1, 0), Block.GREEN_WOOL);
         }
-    }
-
-    private static void shutdownExecutor() {
-        PATHING_EXECUTOR_SERVICE.shutdown();
-        try {
-            if (!PATHING_EXECUTOR_SERVICE.awaitTermination(5, TimeUnit.SECONDS)) {
-                PATHING_EXECUTOR_SERVICE.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            PATHING_EXECUTOR_SERVICE.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    @NotNull
-    public PathfinderOptions options() {
-        return options;
     }
 }

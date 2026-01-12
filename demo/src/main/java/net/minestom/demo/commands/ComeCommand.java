@@ -8,16 +8,17 @@ import net.minestom.server.entity.Player;
 import net.minestom.server.instance.Instance;
 import net.minestom.server.particle.Particle;
 import net.minestom.server.pathfinding.Pathfinder;
+import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.data.Path;
 import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.utils.PathUtils;
-import net.minestom.server.pathfinding.validation.types.BasicNodeValidator;
+import net.minestom.server.pathfinding.validation.types.FastNodeValidator;
 
 public class ComeCommand extends Command {
 
     public static final Pathfinder PATHFINDER = new Pathfinder(
             new PathfinderOptions.Builder()
-                    .nodeValidator(new BasicNodeValidator())
+                    .nodeValidator(new FastNodeValidator())
                     .build()
     );
 
@@ -39,8 +40,7 @@ public class ComeCommand extends Command {
                 final Path path = PATHFINDER.findPath(
                         entity.getPosition(),
                         player.getPosition(),
-                        currentInstance,
-                        entity.getBoundingBox(),
+                        new MobContext(currentInstance, entity.getBoundingBox(), 3),
                         1.0D
                 ).join();
 

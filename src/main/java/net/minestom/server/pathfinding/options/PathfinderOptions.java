@@ -10,12 +10,6 @@ import java.util.List;
 // used to initialize a path generator call in the pathfinder
 public final class PathfinderOptions {
 
-    // world type (static or dynamic world)
-    // average path distance (to prevent priority queue resizing)
-    // completion range (how close we need to get to the target in order to finish the pathfinding)
-    // completion callback (what happens when the path is completed)
-    // node generator (the generator we should use when generating nodes for paths)
-
     // TODO: option to load all chunks needed to generate path?
 
     private final boolean async;
@@ -66,9 +60,6 @@ public final class PathfinderOptions {
         private List<NodeValidator> nodeValidators;
         private int maxIterations;
 
-        private double completionRange;
-        private Runnable completionCallback;
-
         private int bloomFilterSize;
         private double bloomFilterFpp;
 
@@ -76,9 +67,6 @@ public final class PathfinderOptions {
             this.async = false;
             this.nodeValidators = new ArrayList<>();
             this.maxIterations = 100_000_000;
-            this.completionRange = 1.0D;
-            this.completionCallback = () -> {
-            };
             this.bloomFilterSize = 1024;
             this.bloomFilterFpp = 0.01D;
         }
@@ -103,18 +91,6 @@ public final class PathfinderOptions {
         @NotNull
         public Builder maxIterations(int maxIterations) {
             this.maxIterations = maxIterations;
-            return this;
-        }
-
-        @NotNull
-        public Builder completionRange(double completionRange) {
-            this.completionRange = completionRange;
-            return this;
-        }
-
-        @NotNull
-        public Builder completionCallback(@NotNull Runnable completionCallback) {
-            this.completionCallback = completionCallback;
             return this;
         }
 

@@ -1,11 +1,11 @@
 package net.minestom.server.entity;
 
 import net.minestom.server.coordinate.Point;
-import net.minestom.server.entity.path.PathFollower;
 import net.minestom.server.entity.path.types.GroundPathFollower;
 import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.WorldBorder;
 import net.minestom.server.pathfinding.Pathfinder;
+import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.data.Path;
 import net.minestom.server.utils.chunk.ChunkUtils;
 import org.jetbrains.annotations.ApiStatus;
@@ -88,7 +88,7 @@ public class EntityMob extends LivingEntity {
             return CompletableFuture.completedFuture(false);
         }
 
-        this.currentPath = pathfinder.findPath(position, target, instance, boundingBox, completionRange).join();
+        this.currentPath = pathfinder.findPath(position, target, new MobContext(instance, boundingBox, 3), completionRange).join();
         this.completionRange = completionRange;
         this.completionCallback = completionCallback;
 

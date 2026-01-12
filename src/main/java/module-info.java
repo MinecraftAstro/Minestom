@@ -151,6 +151,7 @@ module net.minestom.server {
     exports net.minestom.server.network.socket;
     exports net.minestom.server.particle;
     exports net.minestom.server.pathfinding;
+    exports net.minestom.server.pathfinding.collections;
     exports net.minestom.server.pathfinding.context;
     exports net.minestom.server.pathfinding.data;
     exports net.minestom.server.pathfinding.validation;

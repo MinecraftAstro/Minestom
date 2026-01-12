@@ -4,17 +4,16 @@ import net.minestom.server.collision.*;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
-import net.minestom.server.instance.Instance;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.block.BlockFace;
+import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.context.ValidationContext;
 import net.minestom.server.pathfinding.data.Node;
 import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.pathfinding.validation.ValidationStatus;
 import org.jetbrains.annotations.NotNull;
 
-// TODO: only do swept checks for falls
-public final class BasicNodeValidator implements NodeValidator {
+public final class FastNodeValidator implements NodeValidator {
 
     // TODO: make these dynamic based on a mob context
     private static final float MAXIMUM_STEP_HEIGHT = 0.6f;
@@ -25,23 +24,21 @@ public final class BasicNodeValidator implements NodeValidator {
     @Override
     public @NotNull ValidationStatus checkValidity(@NotNull Node oldNode,
                                                    @NotNull Node newNode,
-                                                   @NotNull Instance instance,
-                                                   @NotNull BoundingBox boundingBox) {
+                                                   @NotNull MobContext mobContext) {
         final Point oldPoint = oldNode.point();
         final Point newPoint = newNode.point();
         final Point belowNewPoint = newNode.point().sub(0, 1, 0);
 
-        final Block oldBlock = instance.getBlock(oldPoint, Block.Getter.Condition.TYPE);
-        final Block newBlock = instance.getBlock(newPoint, Block.Getter.Condition.TYPE);
-        final Block belowNewBlock = instance.getBlock(belowNewPoint, Block.Getter.Condition.TYPE);
+        final Block oldBlock = mobContext.instance().getBlock(oldPoint, Block.Getter.Condition.TYPE);
+        final Block newBlock = mobContext.instance().getBlock(newPoint, Block.Getter.Condition.TYPE);
+        final Block belowNewBlock = mobContext.instance().getBlock(belowNewPoint, Block.Getter.Condition.TYPE);
 
         final Shape oldBlockShape = oldBlock.registry().collisionShape();
         final Shape newBlockShape = newBlock.registry().collisionShape();
         final Shape belowNewBlockShape = belowNewBlock.registry().collisionShape();
 
         final ValidationContext context = new ValidationContext(
-                instance,
-                boundingBox,
+                mobContext,
                 oldNode,
                 newNode,
                 oldPoint,
@@ -108,81 +105,105 @@ public final class BasicNodeValidator implements NodeValidator {
         final int newPointZ = context.belowNewPoint().blockZ();
 
         int landingY = Integer.MIN_VALUE;
+        boolean requiresAdditionalChecks = false;
         for (int y = newPointY; y > context.belowNewPoint().blockY() - MAXIMUM_FALL_DISTANCE; y--) {
             final Block block = context.instance().getBlock(newPointX, y, newPointZ, Block.Getter.Condition.TYPE);
-            // TODO: check for special blocks like trapdoors
-            if (!block.isAir()) {
-                landingY = y;
+            if (block != null && !block.isAir()) {
+                final Shape blockShape = block.registry().collisionShape();
+                if (blockShape.relativeStart().x() == 0.0D && blockShape.relativeStart().z() == 0.0D
+                        && blockShape.relativeEnd().x() == 1.0D && blockShape.relativeEnd().z() == 1.0D) {
+                    landingY = y;
+                } else {
+                    // setting the landingY is only to get over the first check outside of this loop
+                    // technically we don't know if they can land at this Y value
+                    landingY = y;
+                    requiresAdditionalChecks = true;
+                }
+
                 break;
             }
         }
 
+        // check if the fall would exceed the max safe fall distance
+        // we know it does if landingY doesn't get updated to an appropriate value
         if (landingY == Integer.MIN_VALUE) {
             return new ValidationStatus(false);
         }
 
-        // check if the block at the bottom of the max safe fall distance is a solid block
-        final boolean solidEndingBlock = context.instance().getBlock(newPointX, landingY, newPointZ, Block.Getter.Condition.TYPE).registry().collisionShape().isFaceFull(BlockFace.TOP);
-        if (!solidEndingBlock) {
-            // TODO: do more checks
-            return new ValidationStatus(false);
+        // check if we need to do additional checks during the fall
+        // this will happen because of weirdly sized blocks like trapdoors, etc...
+        Node fallNode;
+        if (requiresAdditionalChecks) {
+            System.out.println("Expensive call 2");
+            final Vec velocity = new Vec(0, -MAXIMUM_FALL_DISTANCE, 0);
+            final PhysicsResult result = CollisionUtils.handlePhysics(
+                    context.instance(),
+                    context.boundingBox(),
+                    context.newPoint().asPos(),
+                    velocity,
+                    null,
+                    true
+            );
+
+            if (!result.isOnGround())
+                return new ValidationStatus(false);
+
+            fallNode = new Node(
+                    new Pos(new Pos(newPointX, result.newPosition().y(), newPointZ)),
+                    context.newNode().start(),
+                    context.newNode().target(),
+                    context.newNode().depth() + 1
+            );
+        } else {
+            fallNode = new Node(
+                    new Pos(newPointX, landingY + 1, newPointZ),
+                    context.newNode().start(),
+                    context.newNode().target(),
+                    context.newNode().depth() + 1
+            );
         }
 
-        final Node fallNode = new Node(
-                new Pos(newPointX, landingY + 1, newPointZ),
-                context.newNode().start(),
-                context.newNode().target(),
-                context.newNode().depth() + 1
-        );
         return new ValidationStatus(true, fallNode);
     }
 
     @NotNull
     private ValidationStatus checkUpwards(@NotNull ValidationContext context) {
-        final double oldY = context.oldPoint().y();
-        final double newY = context.newPoint().y();
-        final double yDifference = newY - oldY;
+        final Shape newBlockShape = context.newBlockShape();
+        final Shape aboveNewBlockShape = context.instance().getBlock(context.newPoint().add(0, 1, 0)).registry().collisionShape();
 
-        // the blocks should be on the same Y-level or else we know we can't go up
-        if (yDifference != 0.0D) {
-            return new ValidationStatus(false);
-        }
-
-        final double oldShapeEndY = context.oldBlockShape().relativeEnd().y();
-        final double newShapeEndY = context.newBlockShape().relativeEnd().y();
-        final double yEndDifference = newShapeEndY - oldShapeEndY;
-        System.out.println(yEndDifference);
-
-        if (yEndDifference <= 0.0D) {
-            // this should never happen, but if it does then we don't care about it since this would be a fall
-            return new ValidationStatus(false);
-        }
-
-        if (yEndDifference <= MAXIMUM_STEP_HEIGHT) {
-            // we can achieve this movement with a step
-            // TODO: check for clearance on the old point and new point (is the step or jump actually possible with the bounding box)
-        }
-
-        if (yEndDifference <= MAXIMUM_JUMP_HEIGHT) {
-            // we can achieve this movement with a jump
-            // TODO: check for clearance on the old point and new point (is the step or jump actually possible with the bounding box)
+        if(aboveNewBlockShape.relativeEnd().y() == 0.0D) {
+            // TODO: check for clearance standing at pos
+            final double newBlockHeight = newBlockShape.relativeEnd().y();
+            if(newBlockHeight <= MAXIMUM_STEP_HEIGHT) {
+                // TODO: step
+                if(hasClearance(context, newBlockHeight)) {
+                    System.out.println("Can step!");
+                }
+            } else {
+                // TODO: jump
+            }
+        } else {
+            // TODO: make sure it's less than or equal to 0.25 and then check for clearance at pos
+            // TODO: handle cases like doors and trapdoors that are open
         }
 
         return new ValidationStatus(false);
     }
 
     private boolean hasClearance(@NotNull ValidationContext context) {
-        final int height = (int) Math.ceil(context.boundingBox().height());
-        //System.out.println("Height: " + height);
+        return hasClearance(context, 0.0D);
+    }
+
+    private boolean hasClearance(@NotNull ValidationContext context,
+                                 double heightOffset) {
+        final int height = (int) Math.ceil(context.boundingBox().height() + heightOffset);
 
         final int initialY = context.newPoint().blockY();
         for (int y = initialY; y <= initialY + height; y++) {
             final Point blockPoint = context.newPoint().withY(y);
             final Block block = context.instance().getBlock(blockPoint, Block.Getter.Condition.TYPE);
-            //System.out.println(block);
             final Shape blockShape = block.registry().collisionShape();
             if (blockShape.intersectBox(context.newPoint().sub(blockPoint), context.boundingBox())) {
-                System.out.println("Does not have clearance!");
                 return false;
             }
         }

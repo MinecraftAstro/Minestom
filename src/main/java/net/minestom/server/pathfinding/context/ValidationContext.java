@@ -10,8 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 public final class ValidationContext {
 
-    private final Instance instance;
-    private final BoundingBox boundingBox;
+    private final MobContext mobContext;
 
     private final Node oldNode;
     private final Node newNode;
@@ -28,8 +27,7 @@ public final class ValidationContext {
     private final Shape newBlockShape;
     private final Shape belowNewBlockShape;
 
-    public ValidationContext(@NotNull Instance instance,
-                             @NotNull BoundingBox boundingBox,
+    public ValidationContext(@NotNull MobContext mobContext,
                              @NotNull Node oldNode,
                              @NotNull Node newNode,
                              @NotNull Point oldPoint,
@@ -41,8 +39,7 @@ public final class ValidationContext {
                              @NotNull Shape oldBlockShape,
                              @NotNull Shape newBlockShape,
                              @NotNull Shape belowNewBlockShape) {
-        this.instance = instance;
-        this.boundingBox = boundingBox;
+        this.mobContext = mobContext;
         this.oldNode = oldNode;
         this.newNode = newNode;
         this.oldPoint = oldPoint;
@@ -56,12 +53,16 @@ public final class ValidationContext {
         this.belowNewBlockShape = belowNewBlockShape;
     }
 
+    public MobContext mobContext() {
+        return mobContext;
+    }
+
     public Instance instance() {
-        return instance;
+        return mobContext.instance();
     }
 
     public BoundingBox boundingBox() {
-        return boundingBox;
+        return mobContext.boundingBox();
     }
 
     public Node oldNode() {

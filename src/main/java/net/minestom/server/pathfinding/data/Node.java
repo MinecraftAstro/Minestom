@@ -4,15 +4,12 @@ import net.minestom.server.coordinate.Point;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
-
 public final class Node implements Comparable<Node> {
 
     private final Point point;
 
     private double g;
     private double h;
-    private double f;
 
     private Node parentNode;
     private final int depth;
@@ -29,9 +26,7 @@ public final class Node implements Comparable<Node> {
         this.point = point;
         this.depth = depth;
         this.g = 0;
-        final double h = target.manhattanDistance(point);
-        this.h = h;
-        this.f = h;
+        this.h = target.manhattanDistance(point);
         this.start = start;
         this.target = target;
         this.type = Type.EMPTY;
@@ -134,7 +129,7 @@ public final class Node implements Comparable<Node> {
         return result;
     }
 
-    // TODO: we only care about steps and jumps for the PathFollower
+    // we only care about step and jump nodes for the PathFollower
     public enum Type {
 
         EMPTY,
