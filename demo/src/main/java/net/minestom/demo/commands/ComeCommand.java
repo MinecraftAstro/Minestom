@@ -46,22 +46,11 @@ public class ComeCommand extends Command {
 
                 System.out.println("Path Size: " + path.list().size());
 
-//                entityMob.setPath(player.getPosition(), 1.0D, () ->
-//                        player.sendMessage("Finished pathing."));
-
                 if(path.state() == Path.State.FOUND) {
                     successAmount++;
                 }
 
-//                System.out.println(path.state());
-//                System.out.println(path.start());
-//                System.out.println(path.end());
-//                System.out.println(path.collect().size());
-
                 PathUtils.drawPath(path, Particle.COMPOSTER);
-
-                // TODO: pathfinding
-                // TODO: debug information
             }
             long endTime = System.currentTimeMillis();
 

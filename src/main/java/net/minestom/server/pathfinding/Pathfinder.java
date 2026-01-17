@@ -237,7 +237,7 @@ public class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         outer:
-        for (Vec offset : BASIC_MOVEMENT) {
+        for (Vec offset : DIAGONAL_MOVEMENT) {
             final Point neighborPoint = currentNode.point().add(offset);
             final long packedPoint = RegionKey.pack(neighborPoint);
 
@@ -271,7 +271,6 @@ public class Pathfinder {
                 // if the node is valid, and we have an updated node then we must insert it into the open set since it means we either jumped or fell
                 final Node updatedNode = validationStatus.updatedNode();
                 if (updatedNode != null) {
-                    System.out.println("Updated node!");
                     insertNode(currentNode, updatedNode, pathfindingContext);
 
                     // TODO: for debug, remove me

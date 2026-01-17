@@ -17,7 +17,7 @@ public final class Node implements Comparable<Node> {
     private final Point start;
     private final Point target;
 
-    private Node.Type type;
+    private Type type;
 
     public Node(@NotNull Point point,
                 @NotNull Point start,
@@ -129,7 +129,7 @@ public final class Node implements Comparable<Node> {
         return result;
     }
 
-    // we only care about step and jump nodes for the PathFollower
+    // used to help the PathFollower
     public enum Type {
 
         EMPTY,
