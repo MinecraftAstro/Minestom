@@ -1,11 +1,10 @@
 package net.minestom.server.entity.old.pathfinding.generators;
 
 import net.minestom.server.collision.BoundingBox;
-import net.minestom.server.collision.CollisionUtils;
-import net.minestom.server.collision.PhysicsResult;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.old.pathfinding.PNode;
 import net.minestom.server.instance.block.Block;
+import net.minestom.server.pathfinding.utils.PathUtils;
 
 import java.util.Collection;
 import java.util.OptionalDouble;
@@ -54,12 +53,8 @@ public interface NodeGenerator {
      * @return true if we can move directly from start to end
      */
     default boolean canMoveTowards(Block.Getter getter, Point start, Point end, BoundingBox boundingBox) {
-        final Point diff = end.sub(start);
-
         if (getter.getBlock(end) != Block.AIR) return false;
-        PhysicsResult res = CollisionUtils.handlePhysics(getter, boundingBox,
-                start.asPos(), diff.asVec(), null, false);
-        return !res.collisionZ() && !res.collisionY() && !res.collisionX();
+        return false;
     }
 
     /**

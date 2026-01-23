@@ -19,7 +19,6 @@ public final class FastNodeValidator implements NodeValidator {
     private static final float MAXIMUM_JUMP_HEIGHT = 1.25f;
     private static final int MAXIMUM_FALL_DISTANCE = 3;
 
-    // TODO: add support for diagonal movement
     @Override
     public @NotNull ValidationStatus checkValidity(@NotNull Node oldNode,
                                                    @NotNull Node newNode,
@@ -51,7 +50,12 @@ public final class FastNodeValidator implements NodeValidator {
                 belowNewBlockShape
         );
 
-        return checkMove(context);
+        if (mobContext.boundingBox().width() > 1.0D
+                || mobContext.boundingBox().depth() > 1.0D) {
+            return checkMoveWithLargeBoundingBox(context);
+        } else {
+            return checkMove(context);
+        }
     }
 
     // check to make sure they aren't in a block that might have a door on one-side (will require additional checking)
@@ -80,6 +84,12 @@ public final class FastNodeValidator implements NodeValidator {
 
         // since we know they have clearance to go to this spot, check whether this move results in a fall
         return checkFallMove(context);
+    }
+
+    @NotNull
+    private ValidationStatus checkMoveWithLargeBoundingBox(@NotNull ValidationContext context) {
+        // TODO: support bounding boxes greater than a block in width/depth
+        return new ValidationStatus(false);
     }
 
     @NotNull

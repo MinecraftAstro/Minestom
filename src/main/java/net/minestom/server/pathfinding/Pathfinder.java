@@ -122,6 +122,7 @@ public class Pathfinder {
         Node currentNode = endNode;
         while (currentNode != null) {
             pathPoints.add(currentNode.point());
+            System.out.println("Node Type: " + currentNode.getType());
             currentNode = currentNode.getParentNode();
         }
 
@@ -237,7 +238,7 @@ public class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         outer:
-        for (Vec offset : DIAGONAL_MOVEMENT) {
+        for (Vec offset : BASIC_MOVEMENT) {
             final Point neighborPoint = currentNode.point().add(offset);
             final long packedPoint = RegionKey.pack(neighborPoint);
 
