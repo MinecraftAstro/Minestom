@@ -1,5 +1,6 @@
 package net.minestom.server.inventory.click;
 
+import it.unimi.dsi.fastutil.ints.IntIntPair;
 import net.minestom.server.entity.EquipmentSlot;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.EventDispatcher;
@@ -15,8 +16,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.BiFunction;
 
 @ApiStatus.Internal
 public final class InventoryClickProcessor {
@@ -37,60 +36,66 @@ public final class InventoryClickProcessor {
             }
         } else {
             // Items are not compatible, swap them
-            var temp = clicked;
-
+            ItemStack tempItem = clicked;
             clicked = cursor;
-            cursor = temp;
+            cursor = tempItem;
         }
+
         return new InventoryClickResult(clicked, cursor);
     }
 
     public InventoryClickResult rightClick(ItemStack clicked, ItemStack cursor) {
-        final var result = new InventoryClickResult(clicked, cursor);
+        final InventoryClickResult clickResult = new InventoryClickResult(clicked, cursor);
 
         if (clicked.isSimilar(cursor)) {
             // Items can be stacked
             final int amount = clicked.amount() + 1;
             if (!MathUtils.isBetween(amount, 0, clicked.maxStackSize())) {
                 // Size too large, stop here
-                return result;
+                return clickResult;
             } else {
                 // Add 1 to clicked
-                result.setCursor(cursor.withAmount(operand -> operand - 1));
-                result.setClicked(clicked.withAmount(amount));
+                clickResult.setCursor(cursor.withAmount(operand -> operand - 1));
+                clickResult.setClicked(clicked.withAmount(amount));
             }
         } else {
             // Items cannot be stacked
             if (cursor.isAir()) {
                 // Take half of clicked
-                final int amount = (int) Math.ceil((double) clicked.amount() / 2d);
-                result.setCursor(clicked.withAmount(amount));
-                result.setClicked(clicked.withAmount(operand -> operand / 2));
+                final int amount = (int) Math.ceil((double) clicked.amount() / 2D);
+                clickResult.setCursor(clicked.withAmount(amount));
+                clickResult.setClicked(clicked.withAmount(operand -> operand / 2));
             } else {
                 if (clicked.isAir()) {
                     // Put 1 to clicked
-                    result.setCursor(cursor.withAmount(operand -> operand - 1));
-                    result.setClicked(cursor.withAmount(1));
+                    clickResult.setCursor(cursor.withAmount(operand -> operand - 1));
+                    clickResult.setClicked(cursor.withAmount(1));
                 } else {
                     // Swap items
-                    result.setCursor(clicked);
-                    result.setClicked(cursor);
+                    clickResult.setCursor(clicked);
+                    clickResult.setClicked(cursor);
                 }
             }
         }
-        return result;
+
+        return clickResult;
     }
 
     public InventoryClickResult changeHeld(ItemStack clicked, ItemStack cursor) {
-        return new InventoryClickResult(cursor, clicked); // Swap items
+        // swap the cursor item and the held item
+        return new InventoryClickResult(cursor, clicked);
     }
 
-    public InventoryClickResult shiftClick(AbstractInventory inventory, AbstractInventory targetInventory,
-                                                    int start, int end, int step,
-                                                    Player player, int slot,
-                                                    ItemStack clicked, ItemStack cursor) {
+    public InventoryClickResult shiftClick(AbstractInventory inventory,
+                                           AbstractInventory targetInventory,
+                                           TransactionType.SlotInformation slotInformation,
+                                           Player player,
+                                           int slot,
+                                           ItemStack clicked,
+                                           ItemStack cursor) {
         final InventoryClickResult clickResult = new InventoryClickResult(clicked, cursor);
-        if (clicked.isAir()) return clickResult.cancelled();
+        if (clicked.isAir())
+            return clickResult.cancelled();
 
         final boolean craftingGridClick = slot >= 36 && slot <= 40;
 
@@ -111,14 +116,15 @@ public final class InventoryClickProcessor {
         }
 
         clickResult.setCancel(true);
-        final var pair = TransactionType.ADD.process(targetInventory, clicked, (index, itemStack) -> {
+        final var pair = TransactionType.ADD.process(targetInventory, clicked, (index, _) -> {
             if (inventory == targetInventory && index == slot) {
-                return false; // Prevent item lose/duplication
+                // prevent item lose/duplication
+                return false;
             }
 
             clickResult.setCancel(false);
             return true;
-        }, start, end, step);
+        }, slotInformation);
 
         final ItemStack itemResult = pair.left();
         final Map<Integer, ItemStack> itemChangesMap = pair.right();
@@ -207,50 +213,72 @@ public final class InventoryClickProcessor {
         return cursor;
     }
 
-    public InventoryClickResult doubleClick(AbstractInventory clickedInventory, AbstractInventory inventory, Player player, int slot,
-                                                     ItemStack clicked, ItemStack cursor) {
+    public InventoryClickResult doubleClick(AbstractInventory clickedInventory,
+                                            AbstractInventory inventory,
+                                            Player player,
+                                            int slot,
+                                            ItemStack clicked,
+                                            ItemStack cursor) {
         InventoryClickResult clickResult = new InventoryClickResult(clicked, cursor);
-        if (cursor.isAir()) return clickResult.cancelled();
+        if (cursor.isAir())
+            return clickResult.cancelled();
 
-        final int amount = cursor.amount();
         final int maxSize = cursor.maxStackSize();
-        final int remainingAmount = maxSize - amount;
-        if (remainingAmount == 0) {
-            // Item is already full
+        final int cursorSpace = maxSize - cursor.amount();
+        if (cursorSpace <= 0) {
+            // the cursor item is already full, double clicking will do nothing
             return clickResult;
         }
-        final BiFunction<AbstractInventory, ItemStack, ItemStack> func = (inv, rest) -> {
-            var pair = TransactionType.TAKE.process(inv, rest, (index, itemStack) -> {
-                // Prevent item loss/duplication
-                return index != slot || clickedInventory != inv;
-            });
-            final ItemStack itemResult = pair.left();
-            var itemChangesMap = pair.right();
-            itemChangesMap.forEach((Integer s, ItemStack itemStack) -> {
-                inv.setItemStack(s, itemStack);
-                callClickEvent(player, inv, s, ClickType.DOUBLE_CLICK, itemStack, cursor);
-            });
-            return itemResult;
-        };
 
-        ItemStack remain = cursor.withAmount(remainingAmount);
+        ItemStack remain = cursor.withAmount(cursorSpace);
         final var playerInventory = player.getInventory();
-        // Retrieve remain
-        if (Objects.equals(clickedInventory, inventory)) {
-            // Clicked inside inventory
-            remain = func.apply(inventory, remain);
-            if (!remain.isAir()) {
-                remain = func.apply(playerInventory, remain);
-            }
-        } else if (clickedInventory == playerInventory) {
-            // Clicked inside player inventory, but with another inventory open
-            remain = func.apply(playerInventory, remain);
-            if (!remain.isAir()) {
-                remain = func.apply(inventory, remain);
-            }
+
+        if (inventory == playerInventory) {
+            // CASE: the player double-clicked inside their inventory with no other open inventories
+            // prioritize the inventory from top-left to bottom-right and then hotbar from left to right
+            remain = takeItem(
+                    clickedInventory,
+                    playerInventory,
+                    remain,
+                    new TransactionType.SlotInformation(
+                            List.of(IntIntPair.of(9, playerInventory.getInnerSize() - 1), IntIntPair.of(0, 8)),
+                            1
+                    ),
+                    player,
+                    slot,
+                    cursor
+            );
         } else {
-            // Clicked inside player inventory
-            remain = func.apply(playerInventory, remain);
+            // CASE: the player double-clicked inside an inventory with another inventory open
+            // prioritize the open inventory from top-left to bottom-right and then the player inventory from top-left to bottom-right and then the hotbar from left to right
+            remain = takeItem(
+                    clickedInventory,
+                    inventory,
+                    remain,
+                    new TransactionType.SlotInformation(
+                            0,
+                            inventory.getInnerSize() - 1,
+                            1
+                    ),
+                    player,
+                    slot,
+                    cursor
+            );
+
+            if (!remain.isAir()) {
+                remain = takeItem(
+                        clickedInventory,
+                        playerInventory,
+                        remain,
+                        new TransactionType.SlotInformation(
+                                List.of(IntIntPair.of(9, playerInventory.getInnerSize() - 1), IntIntPair.of(0, 8)),
+                                1
+                        ),
+                        player,
+                        slot,
+                        cursor
+                );
+            }
         }
 
         // Update cursor based on the remaining
@@ -258,14 +286,51 @@ public final class InventoryClickProcessor {
             // Item has been filled
             clickResult.setCursor(cursor.withAmount(maxSize));
         } else {
-            final int tookAmount = remainingAmount - remain.amount();
-            clickResult.setCursor(cursor.withAmount(amount + tookAmount));
+            final int tookAmount = cursorSpace - remain.amount();
+            clickResult.setCursor(cursor.withAmount(cursor.amount() + tookAmount));
         }
+
         return clickResult;
     }
 
+    private ItemStack takeItem(AbstractInventory clickedInventory,
+                               AbstractInventory inventoryToTakeFrom,
+                               ItemStack remainingItem,
+                               TransactionType.SlotInformation slotInformation,
+                               Player player,
+                               int slot,
+                               ItemStack cursor) {
+        ItemStack itemResult = remainingItem;
+
+        for (int pass = 0; pass < 2; pass++) {
+            final int finalPass = pass;
+            var pair = TransactionType.TAKE.process(inventoryToTakeFrom, itemResult, (index, itemStack) -> {
+                // prevent item loss/duplication
+                if (index == slot && clickedInventory == inventoryToTakeFrom) {
+                    return false;
+                }
+
+                // keep vanilla behavior, skip over full-stacsk the first pass and allow full stacks the second pass
+                if (finalPass == 0) {
+                    return itemStack.amount() != itemStack.maxStackSize();
+                }
+
+                return true;
+            }, slotInformation);
+
+            itemResult = pair.left();
+            var itemChangesMap = pair.right();
+            itemChangesMap.forEach((Integer changedSlot, ItemStack newItemStack) -> {
+                inventoryToTakeFrom.setItemStack(changedSlot, newItemStack);
+                callClickEvent(player, inventoryToTakeFrom, changedSlot, ClickType.DOUBLE_CLICK, newItemStack, cursor);
+            });
+        }
+
+        return itemResult;
+    }
+
     public InventoryClickResult drop(Player player,
-                                              boolean all, int slot, ItemStack clicked, ItemStack cursor) {
+                                     boolean all, int slot, ItemStack clicked, ItemStack cursor) {
         final InventoryClickResult clickResult = new InventoryClickResult(clicked, cursor);
 
         if (slot == -999) {
@@ -320,8 +385,12 @@ public final class InventoryClickProcessor {
         return clickResult;
     }
 
-    private void callClickEvent(Player player, AbstractInventory inventory, int slot,
-                                ClickType clickType, ItemStack clicked, ItemStack cursor) {
+    private void callClickEvent(Player player,
+                                AbstractInventory inventory,
+                                int slot,
+                                ClickType clickType,
+                                ItemStack clicked,
+                                ItemStack cursor) {
         EventDispatcher.call(new InventoryClickEvent(inventory, player, slot, clickType, clicked, cursor));
     }
 }

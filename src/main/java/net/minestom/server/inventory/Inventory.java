@@ -1,5 +1,6 @@
 package net.minestom.server.inventory;
 
+import it.unimi.dsi.fastutil.ints.IntIntPair;
 import net.kyori.adventure.text.Component;
 import net.minestom.server.entity.Player;
 import net.minestom.server.inventory.click.ClickType;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * It can then be opened using {@link Player#openInventory(Inventory)}.
  */
 public non-sealed class Inventory extends AbstractInventory {
+
     private static final AtomicInteger ID_COUNTER = new AtomicInteger();
 
     private final byte id;
@@ -113,8 +115,8 @@ public non-sealed class Inventory extends AbstractInventory {
     /**
      * Gets the cursor item of a player.
      *
-     * @deprecated normal inventories no longer store cursor items
      * @see <a href="https://github.com/Minestom/Minestom/pull/2294">the relevant PR</a>
+     * @deprecated normal inventories no longer store cursor items
      */
     @Deprecated
     public ItemStack getCursorItem(Player player) {
@@ -124,8 +126,8 @@ public non-sealed class Inventory extends AbstractInventory {
     /**
      * Changes the cursor item of a player.
      *
-     * @deprecated normal inventories no longer store cursor items
      * @see <a href="https://github.com/Minestom/Minestom/pull/2294">the relevant PR</a>
+     * @deprecated normal inventories no longer store cursor items
      */
     @Deprecated
     public void setCursorItem(Player player, ItemStack cursorItem) {
@@ -199,24 +201,36 @@ public non-sealed class Inventory extends AbstractInventory {
 
         InventoryClickResult clickResult;
         if (isInWindow) {
-            // The player shift-clicked an item in this GUI into their inventory.
-            // Prioritize the hotbar (8->0), then their regular inventory (35->9).
+            // CASE: the player shift-clicked an item from the open inventory into their inventory
+            // prioritize the hotbar going right to left and then the inventory going from top-left to bottom-right
             clickResult = clickProcessor.shiftClick(
-                    this, playerInventory,
-                    8, 0, -1,
-                    player, clickSlot, clicked, cursor);
-
-            if (clickResult.isCancel()) {
-                clickResult = clickProcessor.shiftClick(
-                        this, playerInventory,
-                        playerInventory.getInnerSize() - 1, 0, -1,
-                        player, clickSlot, clicked, cursor);
-            }
+                    this,
+                    playerInventory,
+                    new TransactionType.SlotInformation(
+                            List.of(IntIntPair.of(8, 0), IntIntPair.of(playerInventory.getInnerSize() - 1, 0)),
+                            -1
+                    ),
+                    player,
+                    clickSlot,
+                    clicked,
+                    cursor
+            );
         } else {
+            // CASE: the player shift-clicked an item from their inventory into the open inventory
+            // prioritize the inventory going from top-left to bottom-right
             clickResult = clickProcessor.shiftClick(
-                    playerInventory, this,
-                    0, getInnerSize(), 1,
-                    player, clickSlot, clicked, cursor);
+                    playerInventory,
+                    this,
+                    new TransactionType.SlotInformation(
+                            0,
+                            getInnerSize() - 1,
+                            1
+                    ),
+                    player,
+                    clickSlot,
+                    clicked,
+                    cursor
+            );
         }
 
         if (clickResult.isCancel()) {

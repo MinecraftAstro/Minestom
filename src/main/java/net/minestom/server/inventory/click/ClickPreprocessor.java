@@ -13,6 +13,7 @@ import java.util.Set;
  * Preprocesses click packets, turning them into {@link Click} instances for further processing.
  */
 public final class ClickPreprocessor {
+
     private final Set<Integer> leftDrag = new LinkedHashSet<>();
     private final Set<Integer> rightDrag = new LinkedHashSet<>();
     private final Set<Integer> middleDrag = new LinkedHashSet<>();
@@ -29,7 +30,7 @@ public final class ClickPreprocessor {
      * no-op), hence the parameter. This function can be overridden if modifying the creative check logic is desired,
      * since {@link net.minestom.server.listener.WindowListener} directly depends on this.
      *
-     * @param click the click to check
+     * @param click         the click to check
      * @param hasCursorItem if the client has an item in the cursor (for checking {@code Click.Middle})
      * @return if the click is creative only
      */
@@ -47,7 +48,7 @@ public final class ClickPreprocessor {
      * @param packet        the raw click packet
      * @param containerSize the size of the open container, or null if the player inventory is open
      * @return the processed click, or nothing if the click takes place over multiple packets and this is not the final
-     *         one (e.g. a drag)
+     * one (e.g. a drag)
      */
     public @Nullable Click processClick(ClientClickWindowPacket packet, @Nullable Integer containerSize) {
         final int slot;
@@ -114,6 +115,7 @@ public final class ClickPreprocessor {
      * Processes a click in a valid slot, possibly returning a result.
      */
     private @Nullable Click process(ClientClickWindowPacket.ClickType type, int slot, byte button) {
+        System.out.println("Clicked slot: " + slot);
         return switch (type) {
             case PICKUP -> switch (button) {
                 case 0 -> new Click.Left(slot);

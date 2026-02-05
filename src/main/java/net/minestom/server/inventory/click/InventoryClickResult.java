@@ -3,6 +3,7 @@ package net.minestom.server.inventory.click;
 import net.minestom.server.item.ItemStack;
 
 public final class InventoryClickResult {
+
     private ItemStack clicked;
     private ItemStack cursor;
     private boolean cancel;

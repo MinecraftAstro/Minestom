@@ -22,5 +22,4 @@ public enum ClickType {
     DOUBLE_CLICK,
 
     DROP
-
 }

@@ -257,6 +257,19 @@ final class AreaImpl {
 
             return result;
         }
+
+        @Override
+        public boolean contains(Point point) {
+            final int blockX = point.blockX();
+            final int blockY = point.blockY();
+            final int blockZ = point.blockZ();
+            return blockX >= min.blockX()
+                    && blockX <= max.blockX()
+                    && blockY >= min.blockY()
+                    && blockY <= max.blockY()
+                    && blockZ >= min.blockZ()
+                    && blockZ <= max.blockZ();
+        }
     }
 
     record Sphere(BlockVec center, int radius) implements Area.Sphere {

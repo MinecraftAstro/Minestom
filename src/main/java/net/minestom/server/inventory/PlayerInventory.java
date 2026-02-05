@@ -1,5 +1,6 @@
 package net.minestom.server.inventory;
 
+import it.unimi.dsi.fastutil.ints.IntIntPair;
 import net.minestom.server.entity.EquipmentSlot;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.EventDispatcher;
@@ -22,6 +23,7 @@ import static net.minestom.server.utils.inventory.PlayerInventoryUtils.*;
  * Represents the inventory of a {@link Player}, retrieved with {@link Player#getInventory()}.
  */
 public non-sealed class PlayerInventory extends AbstractInventory {
+
     public static final int INVENTORY_SIZE = 46;
     public static final int INNER_INVENTORY_SIZE = 36;
 
@@ -224,66 +226,59 @@ public non-sealed class PlayerInventory extends AbstractInventory {
         final ItemStack clicked = getItemStack(slot);
         final boolean craftingGridClick = slot > 36 && slot <= 40;
         final boolean craftingResultClick = slot == 36;
-        final boolean hotBarClick = slot < 9;
+        final boolean hotBarClick = slot <= 8;
 
         // the client has different behavior for clicking based on where the item is in the inventory
         InventoryClickResult clickResult;
         final EquipmentSlot equipmentSlot = getEquipmentSlot(slot, player.getHeldSlot());
-        if (equipmentSlot != null && (equipmentSlot.isArmor() || equipmentSlot == EquipmentSlot.OFF_HAND)) {
+        if ((equipmentSlot != null && (equipmentSlot.isArmor() || equipmentSlot == EquipmentSlot.OFF_HAND))
+                || craftingGridClick) {
             // CASE: shift-clicking equipped armor or your off-hand item
-            // we want to go through the inventory slots first
-            // and then through the hotbar going left to right
+            // prioritize any non-full stacks of similar items in the order of top left to the bottom right of the inventory and left to right in the hotbar
             clickResult = clickProcessor.shiftClick(
-                    this, this,
-                    9, INNER_INVENTORY_SIZE, 1,
-                    player, slot, clicked, cursor
+                    this,
+                    this,
+                    new TransactionType.SlotInformation(
+                            List.of(IntIntPair.of(9, INNER_INVENTORY_SIZE - 1), IntIntPair.of(0, 8)),
+                            1
+                    ),
+                    player,
+                    slot,
+                    clicked,
+                    cursor
             );
-
-            if (clickResult.isCancel()) {
-                clickResult = clickProcessor.shiftClick(
-                        this, this,
-                        0, 9, 1,
-                        player, slot, clicked, cursor
-                );
-            }
-        } else if (craftingGridClick) {
-            // CASE: shift-clicking an item from the crafting grid into your inventory
-            // we want to prioritize the inventory from left-to-right and then the hotbar from left-to-right
-            clickResult = clickProcessor.shiftClick(
-                    this, this,
-                    9, INNER_INVENTORY_SIZE, 1,
-                    player, slot, clicked, cursor
-            );
-
-            if(clickResult.isCancel()) {
-                clickResult = clickProcessor.shiftClick(
-                        this, this,
-                        0, 9, 1,
-                        player, slot, clicked, cursor
-                );
-            }
         } else if (craftingResultClick) {
             // CASE: shift-clicking an item from the crafting grid result into your inventory
-            // we want to prioritize the hotbar from right-to-left and then the inventory from right-to-left
+            // prioritize any non-full stacks of similar items in the order of right to left in the hotbar and then bottom-right to top-left in the inventory
+            System.out.println("Crafting result click");
             clickResult = clickProcessor.shiftClick(
-                    this, this,
-                    9, 0, -1,
-                    player, slot, clicked, cursor
+                    this,
+                    this,
+                    new TransactionType.SlotInformation(
+                            List.of(IntIntPair.of(8, 0), IntIntPair.of(INNER_INVENTORY_SIZE - 1, 9)),
+                            -1
+                    ),
+                    player,
+                    slot,
+                    clicked,
+                    cursor
             );
-
-            if(clickResult.isCancel()) {
-                clickResult = clickProcessor.shiftClick(
-                        this, this,
-                        INNER_INVENTORY_SIZE, 9, -1,
-                        player, slot, clicked, cursor
-                );
-            }
         } else {
             // CASE: shift-clicking an item in the hotbar or inventory
+            // if the shift-click comes from the hotbar, prioritize the top left of the inventory to the bottom right of the inventory
+            // if the shift-click comes from the inventory, prioritize the hotbar from left to right
             clickResult = clickProcessor.shiftClick(
-                    this, this,
-                    (hotBarClick ? 9 : 0), (hotBarClick ? INNER_INVENTORY_SIZE : 9), 1,
-                    player, slot, clicked, cursor
+                    this,
+                    this,
+                    new TransactionType.SlotInformation(
+                            hotBarClick ? 9 : 0,
+                            hotBarClick ? INNER_INVENTORY_SIZE - 1 : 8,
+                            1
+                    ),
+                    player,
+                    slot,
+                    clicked,
+                    cursor
             );
         }
 
@@ -309,6 +304,7 @@ public non-sealed class PlayerInventory extends AbstractInventory {
             update();
             return false;
         }
+
         setItemStack(slot, clickResult.getClicked());
         setItemStack(key, clickResult.getCursor());
         callClickEvent(player, this, slot, ClickType.CHANGE_HELD, clicked, cursorItem);
@@ -324,6 +320,7 @@ public non-sealed class PlayerInventory extends AbstractInventory {
             update();
             return false;
         }
+
         setCursorItem(clickResult);
         update(); // FIXME: currently not properly client-predicted
         return true;
@@ -338,9 +335,9 @@ public non-sealed class PlayerInventory extends AbstractInventory {
             update();
             return false;
         }
+
         setCursorItem(clickResult.getCursor());
         update(); // FIXME: currently not properly client-predicted
         return true;
     }
-
 }

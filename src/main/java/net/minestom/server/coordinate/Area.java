@@ -1,6 +1,7 @@
 package net.minestom.server.coordinate;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -104,6 +105,8 @@ public sealed interface Area extends Iterable<BlockVec> {
         BlockVec min();
 
         BlockVec max();
+
+        boolean contains(Point point);
     }
 
     sealed interface Sphere extends Area permits AreaImpl.Sphere {
