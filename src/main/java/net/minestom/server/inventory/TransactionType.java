@@ -68,6 +68,7 @@ public interface TransactionType {
 
             // check air slots to fill
             for (int i = start; step > 0 ? i <= end : i >= end; i += step) {
+                System.out.println("run");
                 ItemStack inventoryItem = inventory.getItemStack(i);
                 if (!inventoryItem.isAir()) continue;
                 if (!slotPredicate.test(i, inventoryItem)) {

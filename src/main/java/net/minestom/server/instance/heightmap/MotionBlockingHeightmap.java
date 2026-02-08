@@ -4,6 +4,7 @@ import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.block.Block;
 
 public class MotionBlockingHeightmap extends Heightmap {
+
     public MotionBlockingHeightmap(Chunk attachedChunk) {
         super(attachedChunk);
     }

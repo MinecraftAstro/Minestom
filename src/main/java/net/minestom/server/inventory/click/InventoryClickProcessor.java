@@ -117,6 +117,10 @@ public final class InventoryClickProcessor {
 
         clickResult.setCancel(true);
         final var pair = TransactionType.ADD.process(targetInventory, clicked, (index, _) -> {
+            System.out.println(inventory);
+            System.out.println(targetInventory);
+            System.out.println(index);
+            System.out.println(slot);
             if (inventory == targetInventory && index == slot) {
                 // prevent item lose/duplication
                 return false;

@@ -11,6 +11,7 @@ import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.block.BlockHandler;
 import net.minestom.server.instance.heightmap.Heightmap;
 import net.minestom.server.instance.heightmap.MotionBlockingHeightmap;
+import net.minestom.server.instance.heightmap.MotionBlockingNoLeavesHeightmap;
 import net.minestom.server.instance.heightmap.WorldSurfaceHeightmap;
 import net.minestom.server.instance.palette.Palette;
 import net.minestom.server.network.NetworkBuffer;
@@ -45,6 +46,7 @@ import static net.minestom.server.network.NetworkBuffer.SHORT;
  * WARNING: not thread-safe.
  */
 public class DynamicChunk extends Chunk {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamicChunk.class);
 
     protected final List<Section> sections;
@@ -52,6 +54,7 @@ public class DynamicChunk extends Chunk {
     private boolean needsCompleteHeightmapRefresh = true;
 
     protected Heightmap motionBlocking = new MotionBlockingHeightmap(this);
+    protected Heightmap motionBlockingNoLeaves = new MotionBlockingNoLeavesHeightmap(this);
     protected Heightmap worldSurface = new WorldSurfaceHeightmap(this);
 
     // Key = ChunkUtils#getBlockIndex
@@ -133,6 +136,7 @@ public class DynamicChunk extends Chunk {
         // UpdateHeightMaps
         if (needsCompleteHeightmapRefresh) calculateFullHeightmap();
         motionBlocking.refresh(sectionRelativeX, y, sectionRelativeZ, block);
+        motionBlockingNoLeaves.refresh(sectionRelativeX, y, sectionRelativeZ, block);
         worldSurface.refresh(sectionRelativeX, y, sectionRelativeZ, block);
     }
 
@@ -167,6 +171,11 @@ public class DynamicChunk extends Chunk {
     }
 
     @Override
+    public Heightmap motionBlockingNoLeavesHeightmap() {
+        return motionBlockingNoLeaves;
+    }
+
+    @Override
     public Heightmap worldSurfaceHeightmap() {
         return worldSurface;
     }
@@ -175,6 +184,10 @@ public class DynamicChunk extends Chunk {
     public void loadHeightmapsFromNBT(CompoundBinaryTag heightmapsNBT) {
         if (heightmapsNBT.get(motionBlockingHeightmap().type().name()) instanceof LongArrayBinaryTag array) {
             motionBlockingHeightmap().loadFrom(array.value());
+        }
+
+        if (heightmapsNBT.get(motionBlockingNoLeavesHeightmap().type().name()) instanceof LongArrayBinaryTag array) {
+            motionBlockingNoLeavesHeightmap().loadFrom(array.value());
         }
 
         if (heightmapsNBT.get(worldSurfaceHeightmap().type().name()) instanceof LongArrayBinaryTag array) {
@@ -305,6 +318,7 @@ public class DynamicChunk extends Chunk {
                 emptyBlockMask.set(index);
             }
         }
+
         return new LightData(
                 skyMask, blockMask,
                 emptySkyMask, emptyBlockMask,
@@ -316,6 +330,7 @@ public class DynamicChunk extends Chunk {
         if (needsCompleteHeightmapRefresh) calculateFullHeightmap();
         return Map.of(
                 motionBlocking.type(), motionBlocking.getNBT(),
+                motionBlockingNoLeaves.type(), motionBlockingNoLeaves.getNBT(),
                 worldSurface.type(), worldSurface.getNBT()
         );
     }
@@ -323,6 +338,7 @@ public class DynamicChunk extends Chunk {
     private void calculateFullHeightmap() {
         final int startY = Heightmap.getHighestBlockSection(this);
         this.motionBlocking.refresh(startY);
+        this.motionBlockingNoLeaves.refresh(startY);
         this.worldSurface.refresh(startY);
         this.needsCompleteHeightmapRefresh = false;
     }

@@ -12,7 +12,9 @@ import static net.minestom.server.instance.Chunk.CHUNK_SIZE_X;
 import static net.minestom.server.instance.Chunk.CHUNK_SIZE_Z;
 
 public abstract class Heightmap {
+
     public enum Type {
+
         WORLD_SURFACE_WG,
         WORLD_SURFACE,
         OCEAN_FLOOR_WG,
@@ -55,6 +57,7 @@ public abstract class Heightmap {
                 }
             }
         }
+
         needsRefresh = false;
     }
 
@@ -77,6 +80,7 @@ public abstract class Heightmap {
                 final Block block = Block.fromStateId(value);
                 return block != null && checkBlock(block);
             });
+
             if (localHeight >= 0) {
                 // Found a matching block, convert local Y back to world Y
                 foundHeight = (sectionY << 4) + localHeight;
@@ -86,6 +90,7 @@ public abstract class Heightmap {
             // No matching block found in this section, move to the section below
             currentY = (sectionY << 4) - 1;
         }
+
         setHeightY(x, z, foundHeight);
     }
 
@@ -110,6 +115,7 @@ public abstract class Heightmap {
             heights[i] = (short) ((int) (data[containerIndex] >> (indexInContainer * bitsPerEntry)) & entryMask);
             if (indexInContainer == maxPossibleIndexInContainer) containerIndex++;
         }
+
         needsRefresh = false;
     }
 
@@ -132,6 +138,7 @@ public abstract class Heightmap {
             if (blockPalette.count() != 0) break;
             y -= 16;
         }
+
         return y;
     }
 
@@ -163,6 +170,7 @@ public abstract class Heightmap {
             data[containerIndex] |= ((long) (entry & entryMask)) << (indexInContainer * bitsPerEntry);
             if (indexInContainer == maxPossibleIndexInContainer) containerIndex++;
         }
+
         return data;
     }
 }

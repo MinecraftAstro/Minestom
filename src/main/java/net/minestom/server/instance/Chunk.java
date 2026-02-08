@@ -39,6 +39,7 @@ import java.util.UUID;
  * you should store the chunk coordinates instead.
  */
 public abstract class Chunk implements Block.Getter, Block.Setter, Biome.Getter, Biome.Setter, Viewable, Tickable, Taggable, Snapshotable {
+
     public static final int CHUNK_SIZE_X = 16;
     public static final int CHUNK_SIZE_Z = 16;
     public static final int CHUNK_SECTION_SIZE = 16;
@@ -101,6 +102,7 @@ public abstract class Chunk implements Block.Getter, Block.Setter, Biome.Getter,
     public abstract Section getSection(int section);
 
     public abstract Heightmap motionBlockingHeightmap();
+    public abstract Heightmap motionBlockingNoLeavesHeightmap();
     public abstract Heightmap worldSurfaceHeightmap();
     public abstract void loadHeightmapsFromNBT(CompoundBinaryTag heightmaps);
 

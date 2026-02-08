@@ -163,6 +163,7 @@ public non-sealed class Inventory extends AbstractInventory {
         } else {
             playerInventory.setItemStack(clickSlot, clickResult.getClicked());
         }
+
         playerInventory.setCursorItem(clickResult.getCursor());
         callClickEvent(player, clickedInventory, slot, ClickType.LEFT_CLICK, clicked, cursor);
         return true;
@@ -186,6 +187,7 @@ public non-sealed class Inventory extends AbstractInventory {
         } else {
             playerInventory.setItemStack(clickSlot, clickResult.getClicked());
         }
+
         playerInventory.setCursorItem(clickResult.getCursor());
         callClickEvent(player, clickedInventory, slot, ClickType.RIGHT_CLICK, clicked, cursor);
         return true;
@@ -218,6 +220,8 @@ public non-sealed class Inventory extends AbstractInventory {
         } else {
             // CASE: the player shift-clicked an item from their inventory into the open inventory
             // prioritize the inventory going from top-left to bottom-right
+            System.out.println("Shift click");
+            System.out.println(getInnerSize() - 1);
             clickResult = clickProcessor.shiftClick(
                     playerInventory,
                     this,

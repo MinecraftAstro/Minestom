@@ -4,6 +4,7 @@ import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.block.Block;
 
 public class WorldSurfaceHeightmap extends Heightmap {
+
     public WorldSurfaceHeightmap(Chunk attachedChunk) {
         super(attachedChunk);
     }

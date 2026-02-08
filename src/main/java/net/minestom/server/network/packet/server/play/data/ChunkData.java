@@ -17,6 +17,7 @@ import static net.minestom.server.network.NetworkBuffer.*;
 
 public record ChunkData(Map<Heightmap.Type, long[]> heightmaps, byte [] data,
                         Map<Integer, Block> blockEntities) {
+
     public ChunkData {
         heightmaps = Map.copyOf(heightmaps);
         blockEntities = blockEntities.entrySet()
@@ -70,6 +71,7 @@ public record ChunkData(Map<Heightmap.Type, long[]> heightmaps, byte [] data,
             final CompoundBinaryTag nbt = reader.read(NBT_COMPOUND);
             // TODO create block object
         }
+
         return blockEntities;
     }
 }
