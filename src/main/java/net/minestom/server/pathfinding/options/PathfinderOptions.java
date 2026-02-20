@@ -1,6 +1,7 @@
 package net.minestom.server.pathfinding.options;
 
 import net.minestom.server.pathfinding.validation.NodeValidator;
+import net.minestom.server.pathfinding.validation.types.FastNodeValidator;
 import net.minestom.server.utils.validate.Check;
 import org.jetbrains.annotations.NotNull;
 

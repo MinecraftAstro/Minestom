@@ -10,11 +10,11 @@ public final class MobContext {
     private final Instance instance;
     private final BoundingBox boundingBox;
 
-    private final int maxSafeFallDistance;
+    private final double maxSafeFallDistance;
 
     public MobContext(@NotNull Instance instance,
                       @NotNull BoundingBox boundingBox,
-                      int maxSafeFallDistance) {
+                      double maxSafeFallDistance) {
         this.instance = instance;
         this.boundingBox = boundingBox;
         this.maxSafeFallDistance = maxSafeFallDistance;
@@ -28,7 +28,7 @@ public final class MobContext {
         return boundingBox;
     }
 
-    public int maxSafeFallDistance() {
+    public double maxSafeFallDistance() {
         return maxSafeFallDistance;
     }
 }

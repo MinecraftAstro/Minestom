@@ -11,6 +11,7 @@ import net.minestom.server.command.builder.arguments.number.ArgumentInteger;
 import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.*;
+import net.minestom.server.entity.ai.navigation.PathNavigator;
 import net.minestom.server.instance.block.Block;
 
 import java.util.Random;
@@ -32,7 +33,7 @@ public class SummonRandomCommand extends Command {
         squareRadius = ArgumentType.Integer("radius");
         entityClass = ArgumentType.Enum("class", SummonCommand.EntityClass.class)
                 .setFormat(ArgumentEnum.Format.LOWER_CASED)
-                .setDefaultValue(SummonCommand.EntityClass.CREATURE);
+                .setDefaultValue(SummonCommand.EntityClass.MOB);
         amount = ArgumentType.Integer("amount");
 
         addSyntax(this::execute, entity, squareRadius, entityClass, amount);
@@ -73,10 +74,7 @@ public class SummonRandomCommand extends Command {
     enum EntityClass {
         BASE(Entity::new),
         LIVING(LivingEntity::new),
-        CREATURE(type -> {
-            // TODO: temporary
-            return new EntityMob(type, ComeCommand.PATHFINDER);
-        });
+        MOB(type -> new EntityMob(type, PathNavigator.Type.GROUND));
         private final EntityFactory factory;
 
         EntityClass(EntityFactory factory) {

@@ -49,6 +49,10 @@ module net.minestom.server {
     exports net.minestom.server.crypto;
     exports net.minestom.server.dialog;
     exports net.minestom.server.entity;
+    exports net.minestom.server.entity.ai;
+    exports net.minestom.server.entity.ai.goals;
+    exports net.minestom.server.entity.ai.navigation;
+    exports net.minestom.server.entity.ai.navigation.types;
     exports net.minestom.server.entity.attribute;
     exports net.minestom.server.entity.damage;
     exports net.minestom.server.entity.metadata;
@@ -73,8 +77,6 @@ module net.minestom.server {
     exports net.minestom.server.entity.old.pathfinding;
     exports net.minestom.server.entity.old.pathfinding.followers;
     exports net.minestom.server.entity.old.pathfinding.generators;
-    exports net.minestom.server.entity.path;
-    exports net.minestom.server.entity.path.types;
     exports net.minestom.server.entity.vehicle;
     exports net.minestom.server.event;
     exports net.minestom.server.event.book;
@@ -191,5 +193,4 @@ module net.minestom.server {
     exports net.minestom.server.world;
     exports net.minestom.server.world.biome;
     exports net.minestom.server.entity.old;
-
 }

@@ -10,6 +10,7 @@ import net.minestom.server.command.builder.arguments.minecraft.registry.Argument
 import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.*;
+import net.minestom.server.entity.ai.navigation.PathNavigator;
 import net.minestom.server.utils.location.RelativeVec;
 
 public class SummonCommand extends Command {
@@ -30,7 +31,7 @@ public class SummonCommand extends Command {
         ));
         entityClass = ArgumentType.Enum("class", EntityClass.class)
                 .setFormat(ArgumentEnum.Format.LOWER_CASED)
-                .setDefaultValue(EntityClass.CREATURE);
+                .setDefaultValue(EntityClass.MOB);
         addSyntax(this::execute, entity, pos, entityClass);
         setDefaultExecutor((sender, context) -> sender.sendMessage("Usage: /summon <type> <x> <y> <z> <class>"));
     }
@@ -45,10 +46,7 @@ public class SummonCommand extends Command {
     enum EntityClass {
         BASE(Entity::new),
         LIVING(LivingEntity::new),
-        CREATURE(type -> {
-            // TODO: temporary
-            return new EntityMob(type, ComeCommand.PATHFINDER);
-        });
+        MOB(type -> new EntityMob(type, PathNavigator.Type.GROUND));
         private final EntityFactory factory;
 
         EntityClass(EntityFactory factory) {

@@ -19,6 +19,11 @@ public final class FastNodeValidator implements NodeValidator {
     private static final float MAXIMUM_JUMP_HEIGHT = 1.25f;
     private static final int MAXIMUM_FALL_DISTANCE = 3;
 
+    // TODO: fix closed doors
+    // TODO: fix the issue where the first iteration results in updated nodes?
+    // TODO: make stairs step and not jump type
+    // TODO: cant pathfind in caves?
+
     @Override
     public @NotNull ValidationStatus checkValidity(@NotNull Node oldNode,
                                                    @NotNull Node newNode,

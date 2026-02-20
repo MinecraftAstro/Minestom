@@ -6,6 +6,7 @@ import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.LivingEntity;
 import net.minestom.server.entity.Player;
+import net.minestom.server.event.entity.EntityDamageEvent;
 import net.minestom.server.registry.DynamicRegistry;
 import net.minestom.server.registry.RegistryKey;
 import net.minestom.server.sound.SoundEvent;
@@ -16,11 +17,12 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a type of damage, required when calling {@link LivingEntity#damage(Damage)}
- * and retrieved in {@link net.minestom.server.event.entity.EntityDamageEvent}.
+ * and retrieved in {@link EntityDamageEvent}.
  * <p>
  * This class can be extended if you need to include custom fields and/or methods.
  */
 public class Damage implements Taggable {
+
     private static final DynamicRegistry<DamageType> DAMAGE_TYPE_REGISTRY = MinecraftServer.getDamageTypeRegistry();
 
     private final RegistryKey<DamageType> typeKey;

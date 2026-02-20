@@ -8,18 +8,18 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public final class Path implements Iterable<Point> {
+public final class Path implements Iterable<PathPoint> {
 
     private final State state;
 
-    private final Iterable<Point> positions;
+    private final Iterable<PathPoint> positions;
     private final Point start;
     private final Point end;
 
     private final int length;
 
     public Path(@NotNull State state,
-                @NotNull Iterable<Point> positions,
+                @NotNull Iterable<PathPoint> positions,
                 @NotNull Point start,
                 @NotNull Point end) {
         this.state = state;
@@ -30,7 +30,7 @@ public final class Path implements Iterable<Point> {
     }
 
     @Override
-    public @NotNull Iterator<Point> iterator() {
+    public @NotNull Iterator<PathPoint> iterator() {
         return positions.iterator();
     }
 
@@ -54,8 +54,8 @@ public final class Path implements Iterable<Point> {
     }
 
     @NotNull
-    public List<Point> list() {
-        final List<Point> list = new ArrayList<>(length);
+    public List<PathPoint> list() {
+        final List<PathPoint> list = new ArrayList<>(length);
         positions.forEach(list::add);
         return list;
     }

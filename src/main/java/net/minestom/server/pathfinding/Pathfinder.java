@@ -8,43 +8,29 @@ import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.collections.BinaryMinimumHeap;
 import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.context.PathfindingContext;
-import net.minestom.server.pathfinding.data.GridRegionData;
-import net.minestom.server.pathfinding.data.Node;
-import net.minestom.server.pathfinding.data.Path;
-import net.minestom.server.pathfinding.data.RegionKey;
+import net.minestom.server.pathfinding.data.*;
+import net.minestom.server.pathfinding.movement.MovementStrategies;
 import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.pathfinding.validation.ValidationStatus;
+import net.minestom.server.pathfinding.validation.types.FastNodeValidator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class Pathfinder {
 
+    public static final Pathfinder DEFAULT_PATHFINDER = new Pathfinder(
+            new PathfinderOptions.Builder()
+                    .nodeValidator(new FastNodeValidator())
+                    .build()
+    );
+
     private static final double TIE_BREAKER_WEIGHT = 1e-6;
-
-    private static final Iterable<Vec> BASIC_MOVEMENT = Arrays.asList(
-            new Vec(-1, 0, 0),
-            new Vec(0, 0, -1),
-            new Vec(0, 0, 1),
-            new Vec(1, 0, 0)
-    );
-
-    private static final Iterable<Vec> DIAGONAL_MOVEMENT = Arrays.asList(
-            new Vec(-1, 0, -1),
-            new Vec(-1, 0, 0),
-            new Vec(-1, 0, 1),
-            new Vec(0, 0, -1),
-            new Vec(0, 0, 1),
-            new Vec(1, 0, -1),
-            new Vec(1, 0, 0),
-            new Vec(1, 0, 1)
-    );
 
     private final PathfinderOptions options;
 
@@ -55,7 +41,7 @@ public class Pathfinder {
     public CompletableFuture<Path> findPath(@NotNull Point start,
                                             @NotNull Point target,
                                             @NotNull MobContext mobContext,
-                                            double completionRange) {
+                                            int completionRange) {
         if (options.async()) {
             return CompletableFuture.supplyAsync(() ->
                     evaluatePath(start, target, mobContext, completionRange), PathfinderScheduler.PATHING_EXECUTOR_SERVICE);
@@ -68,7 +54,7 @@ public class Pathfinder {
     private Path evaluatePath(@NotNull Point start,
                               @NotNull Point target,
                               @NotNull MobContext mobContext,
-                              double completionRange) {
+                              int completionRange) {
         final Node startNode = new Node(start, start, target, 0);
 
         // make a minimum heap priority queue and sort by the lowest F value
@@ -81,11 +67,11 @@ public class Pathfinder {
         // insert the starting node
         insertNode(startNode, pathfindingContext);
 
-        int currentDepth = 0;
+        int iteration = 0;
         Node bestFallbackNode = startNode;
 
-        while (!openSet.isEmpty() && currentDepth < options.maxIterations()) {
-            currentDepth++;
+        while (!openSet.isEmpty() && iteration < options.maxIterations()) {
+            iteration++;
 
             // TODO: check if find path is cancelled
 
@@ -115,14 +101,13 @@ public class Pathfinder {
                                  @NotNull Point target,
                                  @NotNull Node endNode) {
         if (endNode.getParentNode() == null && endNode.depth() == 0) {
-            return new Path(Path.State.FOUND, Collections.singletonList(endNode.point()), start, target);
+            return new Path(Path.State.FOUND, Collections.singletonList(new PathPoint(endNode.point(), endNode.getType())), start, target);
         }
 
-        final List<Point> pathPoints = new ArrayList<>();
+        final List<PathPoint> pathPoints = new ArrayList<>();
         Node currentNode = endNode;
         while (currentNode != null) {
-            pathPoints.add(currentNode.point());
-            System.out.println("Node Type: " + currentNode.getType());
+            pathPoints.add(new PathPoint(currentNode.point(), currentNode.getType()));
             currentNode = currentNode.getParentNode();
         }
 
@@ -238,7 +223,7 @@ public class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         outer:
-        for (Vec offset : BASIC_MOVEMENT) {
+        for (Vec offset : MovementStrategies.DIAGONAL_MOVEMENT_STRATEGY) {
             final Point neighborPoint = currentNode.point().add(offset);
             final long packedPoint = RegionKey.pack(neighborPoint);
 

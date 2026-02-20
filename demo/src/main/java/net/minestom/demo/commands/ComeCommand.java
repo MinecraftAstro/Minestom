@@ -5,22 +5,13 @@ import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.EntityMob;
 import net.minestom.server.entity.Player;
+import net.minestom.server.entity.attribute.Attribute;
 import net.minestom.server.instance.Instance;
 import net.minestom.server.particle.Particle;
-import net.minestom.server.pathfinding.Pathfinder;
-import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.data.Path;
-import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.utils.PathUtils;
-import net.minestom.server.pathfinding.validation.types.FastNodeValidator;
 
 public class ComeCommand extends Command {
-
-    public static final Pathfinder PATHFINDER = new Pathfinder(
-            new PathfinderOptions.Builder()
-                    .nodeValidator(new FastNodeValidator())
-                    .build()
-    );
 
     public ComeCommand() {
         super("come");
@@ -33,20 +24,27 @@ public class ComeCommand extends Command {
             int successAmount = 0;
             long startTime = System.currentTimeMillis();
             for (Entity entity : currentInstance.getEntities()) {
-                // only EntityCreatures can pathfind
                 if (!(entity instanceof EntityMob entityMob))
                     continue;
 
-                final Path path = PATHFINDER.findPath(
-                        entity.getPosition(),
+                entityMob.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.2);
+
+                final Path path = entityMob.setPath(
                         player.getPosition(),
-                        new MobContext(currentInstance, entity.getBoundingBox(), 3),
-                        1.0D
+                        1,
+                        () -> {
+                            player.sendMessage("I have finished my path!");
+                        }
                 ).join();
+
+                if (path.state() == Path.State.FAILED) {
+                    System.out.println("Could not compute path.");
+                    return;
+                }
 
                 System.out.println("Path Size: " + path.list().size());
 
-                if(path.state() == Path.State.FOUND) {
+                if (path.state() == Path.State.FOUND) {
                     successAmount++;
                 }
 
