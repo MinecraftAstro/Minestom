@@ -8,8 +8,8 @@ import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.collections.BinaryMinimumHeap;
 import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.context.PathfindingContext;
+import net.minestom.server.pathfinding.cost.CostProcessor;
 import net.minestom.server.pathfinding.data.*;
-import net.minestom.server.pathfinding.movement.MovementStrategies;
 import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.pathfinding.validation.ValidationStatus;
@@ -21,12 +21,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Pathfinder {
 
     public static final Pathfinder DEFAULT_PATHFINDER = new Pathfinder(
             new PathfinderOptions.Builder()
                     .nodeValidator(new FastNodeValidator())
+                    .debug(false)
                     .build()
     );
 
@@ -41,12 +43,13 @@ public class Pathfinder {
     public CompletableFuture<Path> findPath(@NotNull Point start,
                                             @NotNull Point target,
                                             @NotNull MobContext mobContext,
-                                            int completionRange) {
+                                            int completionRange,
+                                            @NotNull AtomicBoolean cancelFlag) {
         if (options.async()) {
             return CompletableFuture.supplyAsync(() ->
-                    evaluatePath(start, target, mobContext, completionRange), PathfinderScheduler.PATHING_EXECUTOR_SERVICE);
+                    evaluatePath(start, target, mobContext, completionRange, cancelFlag), PathfinderScheduler.PATHING_EXECUTOR_SERVICE);
         } else {
-            return CompletableFuture.completedFuture(evaluatePath(start, target, mobContext, completionRange));
+            return CompletableFuture.completedFuture(evaluatePath(start, target, mobContext, completionRange, cancelFlag));
         }
     }
 
@@ -54,26 +57,49 @@ public class Pathfinder {
     private Path evaluatePath(@NotNull Point start,
                               @NotNull Point target,
                               @NotNull MobContext mobContext,
-                              int completionRange) {
+                              int completionRange,
+                              @NotNull AtomicBoolean cancelFlag) {
         final Node startNode = new Node(start, start, target, 0);
 
+        // check if the start node is valid
+        // this is to prevent computing paths for mobs stuck within blocks, etc...
+        for (NodeValidator nodeValidator : options.nodeValidators()) {
+            if (!nodeValidator.isValidStart(startNode, mobContext)) {
+                // not a valid starting position
+                return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
+            }
+        }
+
         // make a minimum heap priority queue and sort by the lowest F value
-        final BinaryMinimumHeap openSet = new BinaryMinimumHeap(1024);
-        final Long2ObjectMap<GridRegionData> visitedRegions = new Long2ObjectOpenHashMap<>();
+        // TODO: test for optimal values for the initial capacity
+        final BinaryMinimumHeap openSet = new BinaryMinimumHeap(2048);
+        final Long2ObjectMap<SpatialData> visitedRegions = new Long2ObjectOpenHashMap<>();
         final Long2ObjectMap<Node> openSetNodes = new Long2ObjectOpenHashMap<>();
 
         final PathfindingContext pathfindingContext = new PathfindingContext(openSet, visitedRegions, openSetNodes);
 
         // insert the starting node
-        insertNode(startNode, pathfindingContext);
+        insertStartNode(startNode, pathfindingContext);
+
+        final int maxIterations = options.maxIterations();
+        final boolean hasMaxIterations = maxIterations > 0;
+        final int maxLength = options.getMaxLength();
+        final boolean hasMaxLength = maxLength > 0;
 
         int iteration = 0;
         Node bestFallbackNode = startNode;
 
-        while (!openSet.isEmpty() && iteration < options.maxIterations()) {
-            iteration++;
+        while (!openSet.isEmpty() && (!hasMaxIterations || iteration < options.maxIterations())) {
+            // check if the pathfinding request was canceled
+            if (cancelFlag.get()) {
+                if (options.isBestEffortOnCancel()) {
+                    return reconstructPath(start, target, bestFallbackNode, true);
+                }
 
-            // TODO: check if find path is cancelled
+                return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
+            }
+
+            iteration++;
 
             Node currentNode = extractBestNode(pathfindingContext);
             markNodeAsExpanded(currentNode, pathfindingContext);
@@ -82,28 +108,38 @@ public class Pathfinder {
                 bestFallbackNode = currentNode;
             }
 
-            // TODO: path length limit
-
-            // check if we have finished pathing
-            if (currentNode.point().manhattanDistance(target) <= completionRange) {
-                return reconstructPath(start, target, currentNode);
+            // check if the path has reached the max length
+            if (hasMaxLength && currentNode.depth() >= options.getMaxLength()) {
+                return reconstructPath(start, target, bestFallbackNode, true);
             }
 
+            // check if we have finished pathfinding (i.e. are we close enough to the target point)
+            if (currentNode.point().manhattanDistance(target) <= completionRange) {
+                return reconstructPath(start, target, currentNode, false);
+            }
+
+            // process the neighbors around the current node, this is where the magic happens
             processNeighbors(start, target, currentNode, pathfindingContext, mobContext);
         }
 
-        // TODO: fail or best effort path
+        if (options.isBestEffortOnFailure()) {
+            return reconstructPath(start, target, bestFallbackNode, true);
+        }
+
         return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
     }
 
     @NotNull
     private Path reconstructPath(@NotNull Point start,
                                  @NotNull Point target,
-                                 @NotNull Node endNode) {
+                                 @NotNull Node endNode,
+                                 boolean bestEffort) {
         if (endNode.getParentNode() == null && endNode.depth() == 0) {
+            // the end node was the start node, so no movement really happens but the path is "found"
             return new Path(Path.State.FOUND, Collections.singletonList(new PathPoint(endNode.point(), endNode.getType())), start, target);
         }
 
+        // reconstruct the path by tracing through the nodes that were taken
         final List<PathPoint> pathPoints = new ArrayList<>();
         Node currentNode = endNode;
         while (currentNode != null) {
@@ -112,7 +148,7 @@ public class Pathfinder {
         }
 
         Collections.reverse(pathPoints);
-        return new Path(Path.State.FOUND, pathPoints, start, target);
+        return new Path(bestEffort ? Path.State.BEST_EFFORT : Path.State.FOUND, pathPoints, start, target);
     }
 
     private double calculateHeapKey(Node neighbor, double f) {
@@ -127,8 +163,8 @@ public class Pathfinder {
         return heapKey;
     }
 
-    private void insertNode(@NotNull Node startNode,
-                            @NotNull PathfindingContext pathfindingContext) {
+    private void insertStartNode(@NotNull Node startNode,
+                                 @NotNull PathfindingContext pathfindingContext) {
         insertNode(null, startNode, pathfindingContext);
     }
 
@@ -136,10 +172,19 @@ public class Pathfinder {
                             @NotNull Node newNode,
                             @NotNull PathfindingContext pathfindingContext) {
         if (parentNode != null) {
+            // this will not be a start node, so we'll do cost processing for the new node
             newNode.setParentNode(parentNode);
 
-            // TODO: more advanced cost processing
-            final double g = parentNode.getG() + 1.0D;
+            // handle the basic cost processing
+            final CostProcessor costProcessor = options.costProcessor();
+            final double g;
+            switch (newNode.getType()) {
+                case FALL -> g = parentNode.getG() + costProcessor.getFallCost();
+                case STEP -> g = parentNode.getG() + costProcessor.getStepCost();
+                case JUMP -> g = parentNode.getG() + costProcessor.getJumpCost();
+                default -> g = parentNode.getG() + costProcessor.getWalkCost();
+            }
+
             newNode.setG(g);
         }
 
@@ -166,9 +211,8 @@ public class Pathfinder {
 
         // TODO: reopen closed nodes
 
-        final GridRegionData regionData = getOrCreateRegionData(point, pathfindingContext);
-        regionData.getBloomFilter().put(point);
-        regionData.getRegionalExaminedPositions().add(packedPoint);
+        final SpatialData spatialData = getOrCreateSpatialData(point, pathfindingContext);
+        spatialData.insert(point, packedPoint);
     }
 
     private void updateExistingNode(@NotNull Node existingNode,
@@ -203,8 +247,8 @@ public class Pathfinder {
         }
     }
 
-    private GridRegionData getOrCreateRegionData(@NotNull Point point,
-                                                 @NotNull PathfindingContext pathfindingContext) {
+    private SpatialData getOrCreateSpatialData(@NotNull Point point,
+                                               @NotNull PathfindingContext pathfindingContext) {
         final int cellSize = 12;
 
         final int rX = Math.floorDiv(point.blockX(), cellSize);
@@ -214,7 +258,7 @@ public class Pathfinder {
         final long regionKey = RegionKey.pack(rX, rY, rZ);
 
         return pathfindingContext.visitedRegions().computeIfAbsent(regionKey,
-                (long k) -> new GridRegionData(options));
+                (long _) -> new SpatialData(options));
     }
 
     private void processNeighbors(@NotNull Point start,
@@ -223,7 +267,7 @@ public class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         outer:
-        for (Vec offset : MovementStrategies.DIAGONAL_MOVEMENT_STRATEGY) {
+        for (Vec offset : options.movementStrategy()) {
             final Point neighborPoint = currentNode.point().add(offset);
             final long packedPoint = RegionKey.pack(neighborPoint);
 
@@ -235,9 +279,8 @@ public class Pathfinder {
             }
 
             // check if the neighbor is in the closed set
-            final GridRegionData regionData = getOrCreateRegionData(neighborPoint, pathfindingContext);
-            if (regionData.getBloomFilter().mightContain(neighborPoint)
-                    && regionData.getRegionalExaminedPositions().contains(packedPoint)) {
+            final SpatialData spatialData = getOrCreateSpatialData(neighborPoint, pathfindingContext);
+            if (spatialData.contains(neighborPoint, packedPoint)) {
                 // TODO: reopen node
                 continue;
             }
@@ -248,7 +291,7 @@ public class Pathfinder {
 
             // check if the step from the current node to the neighbor node is valid
             for (NodeValidator nodeValidator : options.nodeValidators()) {
-                final ValidationStatus validationStatus = nodeValidator.checkValidity(currentNode, neighborNode, mobContext);
+                final ValidationStatus validationStatus = nodeValidator.checkValidity(currentNode, neighborNode, mobContext, options);
 
                 // if the node isn't valid at all, we'll just skip it and continue to the next one
                 if (!validationStatus.valid())
@@ -259,8 +302,9 @@ public class Pathfinder {
                 if (updatedNode != null) {
                     insertNode(currentNode, updatedNode, pathfindingContext);
 
-                    // TODO: for debug, remove me
-                    mobContext.instance().setBlock(updatedNode.point().sub(0, 1, 0), Block.RED_WOOL);
+                    if (options.isDebug()) {
+                        mobContext.instance().setBlock(updatedNode.point().sub(0, 1, 0), Block.RED_WOOL);
+                    }
 
                     continue outer;
                 }
@@ -268,8 +312,9 @@ public class Pathfinder {
 
             insertNode(currentNode, neighborNode, pathfindingContext);
 
-            // TODO: for debug, remove me
-            mobContext.instance().setBlock(neighborPoint.sub(0, 1, 0), Block.GREEN_WOOL);
+            if (options.isDebug()) {
+                mobContext.instance().setBlock(neighborPoint.sub(0, 1, 0), Block.GREEN_WOOL);
+            }
         }
     }
 }

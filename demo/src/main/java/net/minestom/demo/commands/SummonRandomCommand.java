@@ -63,9 +63,10 @@ public class SummonRandomCommand extends Command {
                 highestBlockY = y;
             }
 
-            final Pos spawnPos = new Pos(randomX, highestBlockY + 1, randomZ);
+            final Pos spawnPos = new Pos(randomX, highestBlockY + 2, randomZ);
 
             final Entity entity = commandContext.get(entityClass).instantiate(commandContext.get(this.entity));
+
             entity.setInstance(((Player) commandSender).getInstance(), spawnPos).join();
         }
     }

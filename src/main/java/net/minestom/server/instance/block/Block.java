@@ -268,6 +268,7 @@ public sealed interface Block extends StaticProtocolObject<Block>, TagReadable, 
     }
 
     interface Getter {
+
         @UnknownNullability
         Block getBlock(int x, int y, int z, Condition condition);
 
@@ -288,17 +289,20 @@ public sealed interface Block extends StaticProtocolObject<Block>, TagReadable, 
          * Implementing interfaces do not have to honor this.
          */
         enum Condition {
+
             /**
              * Returns a block no matter what.
              * {@link Block#AIR} being the default result.
              */
             NONE,
+
             /**
              * Hints that the method should return only if the block is cached.
              * <p>
              * Useful if you are only interested in a block handler or nbt.
              */
             CACHED,
+
             /**
              * Hints that we only care about the block type.
              * <p>

@@ -47,7 +47,6 @@ public final class Node implements Comparable<Node> {
 
     public double getF() {
         return g + h;
-//        return g + 2.5 * h;
     }
 
     public void setG(double g) {
@@ -133,6 +132,8 @@ public final class Node implements Comparable<Node> {
     public enum Type {
 
         EMPTY,
+
+        FALL,
 
         STEP,
 

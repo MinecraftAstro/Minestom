@@ -17,7 +17,7 @@ public final class PathUtils {
     public static void drawPath(@NotNull Path path,
                                 @NotNull Particle particle) {
         MinecraftServer.getSchedulerManager().scheduleTask(() -> {
-            for (PathPoint pathPoint : path) {
+            for (PathPoint pathPoint : path.positions()) {
                 final Point point = pathPoint.point();
                 final ParticlePacket particlePacket = new ParticlePacket(particle, point.blockX() + 0.5, point.y() + 0.5, point.blockZ() + 0.5, 0, 0, 0, 0, 1);
                 MinecraftServer.getConnectionManager().getOnlinePlayers().forEach(player -> {

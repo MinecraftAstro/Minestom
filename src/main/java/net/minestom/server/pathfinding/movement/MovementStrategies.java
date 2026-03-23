@@ -3,20 +3,27 @@ package net.minestom.server.pathfinding.movement;
 import net.minestom.server.coordinate.Vec;
 
 import java.util.Arrays;
+import java.util.Collection;
 
 public final class MovementStrategies {
 
     private MovementStrategies() {
     }
 
-    public static final Iterable<Vec> BASIC_MOVEMENT_STRATEGY = Arrays.asList(
+    /**
+     * Left, right, forward, and backwards movement.
+     */
+    public static final Collection<Vec> BASIC = Arrays.asList(
             new Vec(-1, 0, 0),
             new Vec(0, 0, -1),
             new Vec(0, 0, 1),
             new Vec(1, 0, 0)
     );
 
-    public static final Iterable<Vec> DIAGONAL_MOVEMENT_STRATEGY = Arrays.asList(
+    /**
+     * Left, right, forward, backwards, and diagonal movement.
+     */
+    public static final Collection<Vec> BASIC_AND_DIAGONAL = Arrays.asList(
             new Vec(-1, 0, -1),
             new Vec(-1, 0, 0),
             new Vec(-1, 0, 1),

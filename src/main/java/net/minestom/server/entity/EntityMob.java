@@ -52,8 +52,9 @@ public class EntityMob extends LivingEntity {
 
     public CompletableFuture<Path> setPath(Point target,
                                            int completionRange,
-                                           Runnable completionCallback) {
-        return brain.pathNavigator().setPath(target, completionRange, completionCallback);
+                                           Runnable completionCallback,
+                                           Runnable bestEffortCompletionCallback) {
+        return brain.pathNavigator().setPath(target, completionRange, completionCallback, bestEffortCompletionCallback);
     }
 
     public void clearPath() {

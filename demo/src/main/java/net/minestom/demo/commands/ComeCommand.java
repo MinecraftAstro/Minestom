@@ -21,7 +21,8 @@ public class ComeCommand extends Command {
             final Player player = (Player) sender;
             final Instance currentInstance = player.getInstance();
 
-            int successAmount = 0;
+            int foundAmount = 0;
+            int bestEffortAmount = 0;
             long startTime = System.currentTimeMillis();
             for (Entity entity : currentInstance.getEntities()) {
                 if (!(entity instanceof EntityMob entityMob))
@@ -34,25 +35,32 @@ public class ComeCommand extends Command {
                         1,
                         () -> {
                             player.sendMessage("I have finished my path!");
+                        },
+                        () -> {
+                            player.sendMessage("I tried to finish my path...");
                         }
                 ).join();
 
                 if (path.state() == Path.State.FAILED) {
                     System.out.println("Could not compute path.");
-                    return;
+                    continue;
                 }
 
-                System.out.println("Path Size: " + path.list().size());
+                System.out.println("Path Size: " + path.positions().size());
 
                 if (path.state() == Path.State.FOUND) {
-                    successAmount++;
+                    foundAmount++;
+                }
+
+                if (path.state() == Path.State.BEST_EFFORT) {
+                    bestEffortAmount++;
                 }
 
                 PathUtils.drawPath(path, Particle.COMPOSTER);
             }
             long endTime = System.currentTimeMillis();
 
-            System.out.println("Took " + (endTime - startTime) + "ms to find " + successAmount + " paths.");
+            System.out.println("Took " + (endTime - startTime) + "ms to find " + foundAmount + " paths and partly find " + bestEffortAmount + " paths.");
         });
     }
 }

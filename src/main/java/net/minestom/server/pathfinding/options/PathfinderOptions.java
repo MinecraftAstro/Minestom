@@ -1,37 +1,66 @@
 package net.minestom.server.pathfinding.options;
 
+import net.minestom.server.coordinate.Vec;
+import net.minestom.server.pathfinding.cost.CostProcessor;
+import net.minestom.server.pathfinding.movement.MovementStrategies;
 import net.minestom.server.pathfinding.validation.NodeValidator;
-import net.minestom.server.pathfinding.validation.types.FastNodeValidator;
 import net.minestom.server.utils.validate.Check;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 // used to initialize a path generator call in the pathfinder
 public final class PathfinderOptions {
 
-    // TODO: option to load all chunks needed to generate path?
-
     private final boolean async;
+    private final Collection<Vec> movementStrategy;
     private final List<NodeValidator> nodeValidators;
+    private final CostProcessor costProcessor;
+    // 0 max iterations indicates that there is no max iterations for paths
     private final int maxIterations;
+    // 0 max length indicates that there is no max length for paths
+    private final int maxLength;
 
     private final int bloomFilterSize;
     private final double bloomFilterFpp;
 
+    private final boolean bestEffortOnFailure;
+    private final boolean bestEffortOnCancel;
+
+    // TODO: this can be removed when Mode's chunk batch PR gets pushed (it never will)
+    private final boolean autoLoadChunks;
+
+    private final boolean debug;
+
     private PathfinderOptions(boolean async,
+                              @NotNull Collection<Vec> movementStrategy,
                               @NotNull List<NodeValidator> nodeValidators,
+                              @NotNull CostProcessor costProcessor,
                               int maxIterations,
+                              int maxLength,
                               int bloomFilterSize,
-                              double bloomFilterFpp) {
+                              double bloomFilterFpp,
+                              boolean bestEffortOnFailure,
+                              boolean bestEffortOnCancel,
+                              boolean autoLoadChunks,
+                              boolean debug) {
         this.async = async;
+        this.movementStrategy = movementStrategy;
         this.nodeValidators = nodeValidators;
-        Check.stateCondition(maxIterations <= 0, "Pathfinding max iterations must be greater than 0.");
+        this.costProcessor = costProcessor;
+        Check.stateCondition(maxIterations < 0, "Pathfinding max iterations must be greater than or equal to 0.");
         this.maxIterations = maxIterations;
+        Check.stateCondition(maxLength < 0, "Pathfinding max length must be greater than or equal to 0.");
+        this.maxLength = maxLength;
         Check.stateCondition(bloomFilterSize <= 0, "Pathfinding bloom filter size must be greater than 0.");
         this.bloomFilterSize = bloomFilterSize;
         this.bloomFilterFpp = bloomFilterFpp;
+        this.bestEffortOnFailure = bestEffortOnFailure;
+        this.bestEffortOnCancel = bestEffortOnCancel;
+        this.autoLoadChunks = autoLoadChunks;
+        this.debug = debug;
     }
 
     public boolean async() {
@@ -39,12 +68,26 @@ public final class PathfinderOptions {
     }
 
     @NotNull
+    public Collection<Vec> movementStrategy() {
+        return movementStrategy;
+    }
+
+    @NotNull
     public List<NodeValidator> nodeValidators() {
         return nodeValidators;
     }
 
+    @NotNull
+    public CostProcessor costProcessor() {
+        return costProcessor;
+    }
+
     public int maxIterations() {
         return maxIterations;
+    }
+
+    public int getMaxLength() {
+        return maxLength;
     }
 
     public int bloomFilterSize() {
@@ -55,21 +98,55 @@ public final class PathfinderOptions {
         return bloomFilterFpp;
     }
 
+    public boolean isBestEffortOnFailure() {
+        return bestEffortOnFailure;
+    }
+
+    public boolean isBestEffortOnCancel() {
+        return bestEffortOnCancel;
+    }
+
+    public boolean isAutoLoadChunks() {
+        return autoLoadChunks;
+    }
+
+    public boolean isDebug() {
+        return debug;
+    }
+
     public static final class Builder {
 
         private boolean async;
+        private Collection<Vec> movementStrategy;
         private List<NodeValidator> nodeValidators;
+        private CostProcessor costProcessor;
         private int maxIterations;
+        private int maxLength;
 
         private int bloomFilterSize;
         private double bloomFilterFpp;
 
+        private boolean bestEffortOnFailure;
+        private boolean bestEffortOnCancel;
+
+        private boolean autoLoadChunks;
+
+        private boolean debug;
+
         public Builder() {
             this.async = false;
+            this.movementStrategy = MovementStrategies.BASIC_AND_DIAGONAL;
             this.nodeValidators = new ArrayList<>();
-            this.maxIterations = 100_000_000;
+            this.costProcessor = new CostProcessor.Builder()
+                    .build();
+            this.maxIterations = 50_000;
+            this.maxLength = 500;
             this.bloomFilterSize = 1024;
             this.bloomFilterFpp = 0.01D;
+            this.bestEffortOnFailure = true;
+            this.bestEffortOnCancel = false;
+            this.autoLoadChunks = false;
+            this.debug = false;
         }
 
         @NotNull
@@ -79,19 +156,38 @@ public final class PathfinderOptions {
         }
 
         @NotNull
+        public Builder movementStrategy(@NotNull Collection<Vec> movementStrategy) {
+            this.movementStrategy = movementStrategy;
+            return this;
+        }
+
+        @NotNull
         public Builder nodeValidator(@NotNull NodeValidator nodeValidator) {
             this.nodeValidators.add(nodeValidator);
             return this;
         }
 
+        @NotNull
         public Builder nodeValidators(@NotNull List<NodeValidator> nodeValidators) {
             this.nodeValidators = nodeValidators;
             return this;
         }
 
         @NotNull
+        public Builder costProcessor(@NotNull CostProcessor costProcessor) {
+            this.costProcessor = costProcessor;
+            return this;
+        }
+
+        @NotNull
         public Builder maxIterations(int maxIterations) {
             this.maxIterations = maxIterations;
+            return this;
+        }
+
+        @NotNull
+        public Builder maxLength(int maxLength) {
+            this.maxLength = maxLength;
             return this;
         }
 
@@ -108,13 +204,44 @@ public final class PathfinderOptions {
         }
 
         @NotNull
+        public Builder bestEffortOnFailure(boolean bestEffortOnFailure) {
+            this.bestEffortOnFailure = bestEffortOnFailure;
+            return this;
+        }
+
+        @NotNull
+        public Builder bestEffortOnCancel(boolean bestEffortOnCancel) {
+            this.bestEffortOnCancel = bestEffortOnCancel;
+            return this;
+        }
+
+        @NotNull
+        public Builder autoLoadChunks(boolean autoLoadChunks) {
+            this.autoLoadChunks = autoLoadChunks;
+            return this;
+        }
+
+        @NotNull
+        public Builder debug(boolean debug) {
+            this.debug = debug;
+            return this;
+        }
+
+        @NotNull
         public PathfinderOptions build() {
             return new PathfinderOptions(
                     async,
+                    List.copyOf(movementStrategy),
                     List.copyOf(nodeValidators),
+                    costProcessor,
                     maxIterations,
+                    maxLength,
                     bloomFilterSize,
-                    bloomFilterFpp
+                    bloomFilterFpp,
+                    bestEffortOnFailure,
+                    bestEffortOnCancel,
+                    autoLoadChunks,
+                    debug
             );
         }
     }

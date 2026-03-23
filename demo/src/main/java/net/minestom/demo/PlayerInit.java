@@ -1,16 +1,8 @@
 package net.minestom.demo;
 
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.object.ObjectContents;
-import net.minestom.demo.entity.PlayerEntity;
-import net.minestom.server.FeatureFlag;
 import net.minestom.server.MinecraftServer;
-import net.minestom.server.advancements.FrameType;
-import net.minestom.server.advancements.Notification;
 import net.minestom.server.adventure.MinestomAdventure;
 import net.minestom.server.adventure.audience.Audiences;
 import net.minestom.server.component.DataComponents;
@@ -19,8 +11,6 @@ import net.minestom.server.coordinate.Vec;
 import net.minestom.server.dialog.*;
 import net.minestom.server.entity.*;
 import net.minestom.server.entity.damage.Damage;
-import net.minestom.server.entity.metadata.avatar.MannequinMeta;
-import net.minestom.server.entity.metadata.golem.CopperGolemMeta;
 import net.minestom.server.event.Event;
 import net.minestom.server.event.EventNode;
 import net.minestom.server.event.entity.EntityAttackEvent;
@@ -29,44 +19,38 @@ import net.minestom.server.event.item.*;
 import net.minestom.server.event.player.*;
 import net.minestom.server.event.server.ServerTickMonitorEvent;
 import net.minestom.server.instance.Instance;
-import net.minestom.server.instance.InstanceContainer;
-import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.LightingChunk;
+import net.minestom.server.instance.anvil.AnvilLoader;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.block.BlockFace;
 import net.minestom.server.instance.block.BlockHandler;
-import net.minestom.server.instance.block.predicate.BlockPredicate;
 import net.minestom.server.inventory.Inventory;
 import net.minestom.server.inventory.InventoryType;
-import net.minestom.server.inventory.PlayerInventory;
-import net.minestom.server.item.ItemAnimation;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.Material;
-import net.minestom.server.item.component.BlockPredicates;
-import net.minestom.server.item.component.Consumable;
 import net.minestom.server.monitoring.BenchmarkManager;
 import net.minestom.server.monitoring.TickMonitor;
-import net.minestom.server.network.packet.server.common.CustomReportDetailsPacket;
-import net.minestom.server.network.packet.server.common.ServerLinksPacket;
-import net.minestom.server.network.packet.server.play.TrackedWaypointPacket;
-import net.minestom.server.network.player.ResolvableProfile;
 import net.minestom.server.sound.SoundEvent;
-import net.minestom.server.utils.Either;
 import net.minestom.server.utils.MathUtils;
 import net.minestom.server.utils.time.TimeUnit;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class PlayerInit {
 
-    private final Inventory inventory;
+    private static final Instance MAIN_INSTANCE;
+
+    static {
+        MAIN_INSTANCE = MinecraftServer.getInstanceManager().createInstanceContainer(new AnvilLoader("worlds/world"));
+        MAIN_INSTANCE.setChunkSupplier(LightingChunk::new);
+
+        MAIN_INSTANCE.setTime(12000L);
+        MAIN_INSTANCE.setTimeRate(0);
+    }
 
     private final EventNode<Event> DEMO_NODE = EventNode.all("demo")
             .addListener(EntityAttackEvent.class, event -> {
@@ -84,7 +68,6 @@ public class PlayerInit {
                     ((Player) source).sendMessage("You attacked something!");
                 }
             })
-            .addListener(PlayerDeathEvent.class, event -> event.setChatMessage(Component.text("custom death message")))
             .addListener(PickupItemEvent.class, event -> {
                 final Entity entity = event.getLivingEntity();
                 if (entity instanceof Player) {
@@ -108,158 +91,21 @@ public class PlayerInit {
             .addListener(AsyncPlayerConfigurationEvent.class, event -> {
                 final Player player = event.getPlayer();
 
-                // Show off adding and removing feature flags
-                event.removeFeatureFlag(FeatureFlag.TRADE_REBALANCE); // not enabled by default, just removed for demonstration
+                event.setSpawningInstance(MAIN_INSTANCE);
 
-                var instances = MinecraftServer.getInstanceManager().getInstances();
-                Instance instance = instances.stream().skip(new Random().nextInt(instances.size())).findFirst().orElse(null);
-                event.setSpawningInstance(instance);
-                int x = Math.abs(ThreadLocalRandom.current().nextInt()) % 500 - 250;
-                int z = Math.abs(ThreadLocalRandom.current().nextInt()) % 500 - 250;
-                player.setRespawnPoint(new Pos(0, 40f, 0));
+                final Pos spawnPoint = new Pos(-100.5, 124, -45.5, -91.0f, 0.6f);
+                player.setRespawnPoint(spawnPoint);
             })
             .addListener(PlayerSpawnEvent.class, event -> {
                 final Player player = event.getPlayer();
                 player.setGameMode(GameMode.CREATIVE);
                 player.setPermissionLevel(4);
-
-                player.sendMessage(Component.text("click me for less health ")
-                                           .clickEvent(ClickEvent.runCommand("health set 2"))
-                                           .append(Component.object(ObjectContents.sprite(Key.key("block/stone"))))
-                                           .append(Component.object(ObjectContents.playerHead("Minestom"))));
-                ItemStack itemStack = ItemStack.builder(Material.STONE)
-                        .amount(64)
-                        .set(DataComponents.CAN_PLACE_ON, new BlockPredicates(new BlockPredicate(Block.STONE)))
-                        .set(DataComponents.CAN_BREAK, new BlockPredicates(new BlockPredicate(Block.DIAMOND_ORE)))
-                        .build();
-                player.getInventory().addItemStack(itemStack);
-
-                player.sendPacket(new CustomReportDetailsPacket(Map.of(
-                        "hello", "world"
-                )));
-
-                player.sendPacket(new ServerLinksPacket(
-                        new ServerLinksPacket.Entry(ServerLinksPacket.KnownLinkType.NEWS, "https://minestom.net"),
-                        new ServerLinksPacket.Entry(ServerLinksPacket.KnownLinkType.BUG_REPORT, "https://minestom.net"),
-                        new ServerLinksPacket.Entry(Component.text("Hello world!"), "https://minestom.net")
-                ));
-
-                // TODO(1.21.2): Handle bundle slot selection
-                ItemStack bundle = ItemStack.builder(Material.BUNDLE)
-                        .set(DataComponents.BUNDLE_CONTENTS, List.of(
-                                ItemStack.of(Material.DIAMOND, 5),
-                                ItemStack.of(Material.RABBIT_FOOT, 5)
-                        ))
-                        .build();
-                player.getInventory().addItemStack(bundle);
-
-                PlayerInventory inventory = event.getPlayer().getInventory();
-                inventory.addItemStack(getFoodItem(20));
-                inventory.addItemStack(ItemStack.of(Material.PURPLE_BED));
-
-                if (event.isFirstSpawn()) {
-                    event.getPlayer().sendNotification(new Notification(
-                            Component.text("Welcome!"),
-                            FrameType.TASK,
-                            Material.IRON_SWORD
-                    ));
-
-                    player.playSound(Sound.sound(SoundEvent.ENTITY_EXPERIENCE_ORB_PICKUP, Sound.Source.PLAYER, 0.5f, 1f));
-
-                    var happyGhast = new LivingEntity(EntityType.HAPPY_GHAST);
-                    happyGhast.setNoGravity(true);
-                    happyGhast.setBodyEquipment(ItemStack.of(Material.GREEN_HARNESS));
-                    happyGhast.setInstance(player.getInstance(), new Pos(10, 43, 5, 45, 0));
-
-                    var copperGolem = new LivingEntity(EntityType.COPPER_GOLEM);
-                    copperGolem.setNoGravity(true);
-                    copperGolem.setItemInMainHand(ItemStack.of(Material.STICK));
-                    ((CopperGolemMeta) copperGolem.getEntityMeta()).setState(CopperGolemMeta.State.GETTING_ITEM);
-                    copperGolem.setInstance(player.getInstance(), new Pos(-10, 40, 5, -133, 0));
-
-                    player.getInstance().setBlock(new Vec(-12, 40, 5), Block.WEATHERED_COPPER_GOLEM_STATUE.withProperty("copper_golem_pose", "star"));
-
-                    player.sendPacket(new TrackedWaypointPacket(TrackedWaypointPacket.Operation.TRACK, new TrackedWaypointPacket.Waypoint(
-                            Either.left(happyGhast.getUuid()),
-                            TrackedWaypointPacket.Icon.DEFAULT,
-                            new TrackedWaypointPacket.Target.Vec3i(happyGhast.getPosition())
-                    )));
-
-                    var playerEntity = new PlayerEntity();
-                    playerEntity.setInstance(player.getInstance(), new Pos(-2.5, 40, 6.7, -163, 0));
-                    player.sendPacket(new TrackedWaypointPacket(TrackedWaypointPacket.Operation.TRACK, new TrackedWaypointPacket.Waypoint(
-                            Either.left(playerEntity.getUuid()),
-                            TrackedWaypointPacket.Icon.DEFAULT,
-                            new TrackedWaypointPacket.Target.Vec3i(playerEntity.getPosition())
-                    )));
-
-                    var mannequinEntity = new LivingEntity(EntityType.MANNEQUIN);
-                    mannequinEntity.setNoGravity(true);
-                    var mannequinMeta = (MannequinMeta) mannequinEntity.getEntityMeta();
-                    mannequinEntity.set(DataComponents.CUSTOM_NAME, Component.text("Minestom"));
-                    mannequinMeta.setCustomNameVisible(true);
-                    mannequinMeta.setProfile(new ResolvableProfile(new ResolvableProfile.Partial("Minestom", null, List.of())));
-                    mannequinMeta.setImmovable(true);
-                    mannequinMeta.setDescription(Component.text("npc"));
-                    mannequinEntity.setInstance(player.getInstance(), new Pos(-4, 40, 6, -131, 0));
-                    mannequinEntity.setItemInMainHand(ItemStack.of(Material.PLAYER_HEAD).with(DataComponents.PROFILE,
-                          new ResolvableProfile(new ResolvableProfile.Partial("Minestom", null, List.of()))));
-                    player.sendPacket(new TrackedWaypointPacket(TrackedWaypointPacket.Operation.TRACK, new TrackedWaypointPacket.Waypoint(
-                            Either.left(mannequinEntity.getUuid()),
-                            TrackedWaypointPacket.Icon.DEFAULT,
-                            new TrackedWaypointPacket.Target.Vec3i(mannequinEntity.getPosition())
-                    )));
-                }
             })
             .addListener(PlayerGameModeRequestEvent.class, event -> {
                 final Player player = event.getPlayer();
                 if (player.getPermissionLevel() >= 2) {
                     player.setGameMode(event.getRequestedGameMode());
                 }
-            })
-            .addListener(PlayerChatEvent.class, event -> {
-                var dialog = new Dialog.MultiAction(
-                        new DialogMetadata(
-                                Component.text("Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?Are you sure you want to confirm?").hoverEvent(HoverEvent.showText(Component.text("Hover text here"))),
-                                null, true, false,
-                                DialogAfterAction.CLOSE,
-                                List.of(
-                                        new DialogBody.PlainMessage(Component.text("plain message here").hoverEvent(HoverEvent.showText(Component.text("Hover text here"))), DialogBody.PlainMessage.DEFAULT_WIDTH),
-                                        new DialogBody.Item(ItemStack.of(Material.DIAMOND, 5),
-                                                new DialogBody.PlainMessage(Component.text("item message"), DialogBody.PlainMessage.DEFAULT_WIDTH),
-                                                false, true, 16, 16)
-                                ),
-                                List.of(
-                                        new DialogInput.Text("text", DialogInput.DEFAULT_WIDTH * 2, Component.text("Enter some text")
-                                                .hoverEvent(HoverEvent.showText(Component.text("Hover text here"))), true, "", Integer.MAX_VALUE, new DialogInput.Text.Multiline(15, null)),
-                                        new DialogInput.Boolean("bool", Component.text("Checkbox"), false, "true", "false"),
-                                        new DialogInput.SingleOption("single_option", DialogInput.DEFAULT_WIDTH, List.of(
-                                                new DialogInput.SingleOption.Option("option1", Component.text("Option 1"), true),
-                                                new DialogInput.SingleOption.Option("option2", Component.text("Option 2"), false),
-                                                new DialogInput.SingleOption.Option("option3", Component.text("Option 3"), false)
-                                        ), Component.text("Single option"), true),
-                                        new DialogInput.NumberRange("number_range", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f),
-                                        new DialogInput.NumberRange("number_r2ange", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f),
-                                        new DialogInput.NumberRange("number_r3ange", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f),
-                                        new DialogInput.NumberRange("number_r4ange", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f),
-                                        new DialogInput.NumberRange("number_r5ange", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f),
-                                        new DialogInput.NumberRange("number_r6ange", DialogInput.DEFAULT_WIDTH, Component.text("Number range"),
-                                                "options.generic_value", 0, 500, 250f, 1f)
-                                )
-                        ),
-                        List.of(
-                                new DialogActionButton(Component.text("Done"), null, DialogActionButton.DEFAULT_WIDTH, new DialogAction.DynamicCustom(Key.key("done_action"), null)),
-                                new DialogActionButton(Component.text("Done"), null, DialogActionButton.DEFAULT_WIDTH, null)
-                        ),
-                        null, 2
-                );
-
-                event.getPlayer().sendMessage(Component.text("Click for dialog!").clickEvent(ClickEvent.showDialog(dialog)));
             })
             .addListener(PlayerCustomClickEvent.class, event -> {
                 String payload = "null";
@@ -276,7 +122,6 @@ public class PlayerInit {
                 //System.out.println("out " + event.getPacket().getClass().getSimpleName());
             })
             .addListener(PlayerPacketEvent.class, event -> {
-
                 //System.out.println("in " + event.getPacket().getClass().getSimpleName());
             })
             .addListener(PlayerBlockBreakEvent.class, event -> {
@@ -393,25 +238,6 @@ public class PlayerInit {
                         .forEach(comp -> event.getPlayer().sendMessage(comp));
             });
 
-    {
-        InstanceManager instanceManager = MinecraftServer.getInstanceManager();
-
-        InstanceContainer instanceContainer = instanceManager.createInstanceContainer();
-        instanceContainer.setGenerator(unit -> {
-            unit.modifier().fillHeight(0, 40, Block.STONE);
-
-            if (unit.absoluteStart().blockY() < 40 && unit.absoluteEnd().blockY() > 40) {
-                unit.modifier().setBlock(unit.absoluteStart().blockX(), 40, unit.absoluteStart().blockZ(), Block.TORCH);
-            }
-        });
-        instanceContainer.setChunkSupplier(LightingChunk::new);
-        instanceContainer.setTimeRate(0);
-        instanceContainer.setTime(12000);
-
-        inventory = new Inventory(InventoryType.CHEST_1_ROW, Component.text("Test inventory"));
-        inventory.setItemStack(3, ItemStack.of(Material.DIAMOND, 34));
-    }
-
     private final AtomicReference<TickMonitor> LAST_TICK = new AtomicReference<>();
 
     public void init() {
@@ -440,17 +266,5 @@ public class PlayerInit {
             final Component footer = benchmarkManager.getCpuMonitoringMessage();
             Audiences.players().sendPlayerListHeaderAndFooter(header, footer);
         }).repeat(10, TimeUnit.SERVER_TICK).schedule();
-    }
-
-    public static ItemStack getFoodItem(int consumeTicks) {
-        return ItemStack.builder(Material.IRON_NUGGET)
-                .amount(64)
-                .set(DataComponents.CONSUMABLE, new Consumable(
-                        (float) consumeTicks / 20,
-                        ItemAnimation.EAT,
-                        SoundEvent.BLOCK_CHAIN_STEP,
-                        true,
-                        new ArrayList<>()))
-                .build();
     }
 }

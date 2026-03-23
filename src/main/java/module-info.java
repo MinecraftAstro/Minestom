@@ -155,6 +155,7 @@ module net.minestom.server {
     exports net.minestom.server.pathfinding;
     exports net.minestom.server.pathfinding.collections;
     exports net.minestom.server.pathfinding.context;
+    exports net.minestom.server.pathfinding.cost;
     exports net.minestom.server.pathfinding.data;
     exports net.minestom.server.pathfinding.validation;
     exports net.minestom.server.pathfinding.validation.types;

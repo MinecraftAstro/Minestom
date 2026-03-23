@@ -4,22 +4,20 @@ import it.unimi.dsi.fastutil.objects.ObjectIterables;
 import net.minestom.server.coordinate.Point;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
-public final class Path implements Iterable<PathPoint> {
+public final class Path {
 
     private final State state;
 
-    private final Iterable<PathPoint> positions;
+    private final List<PathPoint> positions;
     private final Point start;
     private final Point end;
 
     private final int length;
 
     public Path(@NotNull State state,
-                @NotNull Iterable<PathPoint> positions,
+                @NotNull List<PathPoint> positions,
                 @NotNull Point start,
                 @NotNull Point end) {
         this.state = state;
@@ -29,14 +27,14 @@ public final class Path implements Iterable<PathPoint> {
         this.length = (int) ObjectIterables.size(positions);
     }
 
-    @Override
-    public @NotNull Iterator<PathPoint> iterator() {
-        return positions.iterator();
-    }
-
     @NotNull
     public State state() {
         return state;
+    }
+
+    @NotNull
+    public List<PathPoint> positions() {
+        return positions;
     }
 
     @NotNull
@@ -53,21 +51,21 @@ public final class Path implements Iterable<PathPoint> {
         return length;
     }
 
-    @NotNull
-    public List<PathPoint> list() {
-        final List<PathPoint> list = new ArrayList<>(length);
-        positions.forEach(list::add);
-        return list;
-    }
-
     public enum State {
 
+        /**
+         * Indicates that there is a valid path from start to end.
+         */
         FOUND,
 
-        FAILED,
-
+        /**
+         * Indicates that there is not a valid path from start to end, but there is a path that might get close to the end.
+         */
         BEST_EFFORT,
 
-        MAX_ITERATIONS_REACHED
+        /**
+         * Indicates that no path could be found to get from start to end.
+         */
+        FAILED
     }
 }

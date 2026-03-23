@@ -8,11 +8,19 @@ import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.context.ValidationContext;
 import net.minestom.server.pathfinding.data.Node;
+import net.minestom.server.pathfinding.options.PathfinderOptions;
 import net.minestom.server.pathfinding.validation.NodeValidator;
 import net.minestom.server.pathfinding.validation.ValidationStatus;
 import org.jetbrains.annotations.NotNull;
 
 public final class FastNodeValidator implements NodeValidator {
+
+    // TODO: fix issue when the mob starts in something like a stair-case where it doesnt move
+    // it seems to want to have a node within the stair-case, which causes the entity to not move
+
+    // TODO: auto-load chunks
+    // TODO: support water movement (just floating for now)
+    // TODO: support larger hitboxes
 
     // TODO: make these dynamic based on a mob context
     private static final float MAXIMUM_STEP_HEIGHT = 0.6f;
@@ -25,9 +33,16 @@ public final class FastNodeValidator implements NodeValidator {
     // TODO: cant pathfind in caves?
 
     @Override
+    public boolean isValidStart(@NotNull Node startNode,
+                                @NotNull MobContext mobContext) {
+        return hasClearance(mobContext, startNode.point());
+    }
+
+    @Override
     public @NotNull ValidationStatus checkValidity(@NotNull Node oldNode,
                                                    @NotNull Node newNode,
-                                                   @NotNull MobContext mobContext) {
+                                                   @NotNull MobContext mobContext,
+                                                   @NotNull PathfinderOptions options) {
         final Point oldPoint = new Pos(oldNode.point().blockX() + 0.5, oldNode.point().y(), oldNode.point().blockZ() + 0.5);
         final Point newPoint = new Pos(newNode.point().blockX() + 0.5, newNode.point().y(), newNode.point().blockZ() + 0.5);
         final Point belowNewPoint = newNode.point().sub(0, 1, 0);
@@ -55,12 +70,12 @@ public final class FastNodeValidator implements NodeValidator {
                 belowNewBlockShape
         );
 
-        if (mobContext.boundingBox().width() > 1.0D
-                || mobContext.boundingBox().depth() > 1.0D) {
-            return checkMoveWithLargeBoundingBox(context);
-        } else {
+//        if (mobContext.boundingBox().width() > 1.0D
+//                || mobContext.boundingBox().depth() > 1.0D) {
+//            return checkMoveWithLargeBoundingBox(context);
+//        } else {
             return checkMove(context);
-        }
+//        }
     }
 
     // check to make sure they aren't in a block that might have a door on one-side (will require additional checking)
@@ -184,7 +199,7 @@ public final class FastNodeValidator implements NodeValidator {
         final double totalBlockHeight = (newBlockShape.relativeEnd().y() + aboveNewBlockShape.relativeEnd().y()) - oldBlockShape.relativeEnd().y();
         System.out.println("Total Block Height: " + totalBlockHeight);
 
-        if(totalBlockHeight > 0.0D && totalBlockHeight <= MAXIMUM_JUMP_HEIGHT) {
+        if (totalBlockHeight > 0.0D && totalBlockHeight <= MAXIMUM_JUMP_HEIGHT) {
             System.out.println("Can step/jump");
 
             // check the clearance at the old point and the new point with the modified Y value from the step/jump
@@ -208,6 +223,26 @@ public final class FastNodeValidator implements NodeValidator {
     }
 
     private boolean hasClearance(@NotNull ValidationContext context,
+                                 @NotNull Point point) {
+        final BoundingBox.PointIterator blockIterator = context.boundingBox().getBlocks(point);
+        while (blockIterator.hasNext()) {
+            final BoundingBox.MutablePoint blockPoint = blockIterator.next();
+            final Block block = context.instance().getBlock(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ(), Block.Getter.Condition.TYPE);
+
+            if (block == null) continue;
+            if (block.id() == Block.SCAFFOLDING.id()) continue;
+
+            final boolean hit = block.registry().collisionShape().intersectBox(point.sub(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ()), context.boundingBox());
+            if (hit) {
+                System.out.println("Hit Block: " + block);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private boolean hasClearance(@NotNull MobContext context,
                                  @NotNull Point point) {
         final BoundingBox.PointIterator blockIterator = context.boundingBox().getBlocks(point);
         while (blockIterator.hasNext()) {

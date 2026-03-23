@@ -9,11 +9,11 @@ import net.minestom.server.pathfinding.options.PathfinderOptions;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The GridRegionData class represents the data associated with a grid region. This data includes a
+ * The SpatialData class represents the data associated with a grid region. This data includes a
  * Bloom filter used to quickly check if a position is within the region and a set of positions that
  * have been examined by the pathfinder.
  */
-public final class GridRegionData {
+public final class SpatialData {
 
     /**
      * The Bloom filter used to store the positions of the region. This filter is used to quickly
@@ -34,21 +34,37 @@ public final class GridRegionData {
      *
      * @param options The pathfinder options containing Bloom filter settings
      */
-    public GridRegionData(@NotNull PathfinderOptions options) {
+    public SpatialData(@NotNull PathfinderOptions options) {
         final Funnel<Point> pointFunnel = (point, into) ->
-                into.putInt(point.blockX()).putInt(point.blockY()).putInt(point.blockZ());
+                into.putInt(point.blockX())
+                        .putInt(point.blockY())
+                        .putInt(point.blockZ());
 
         this.bloomFilter = BloomFilter.create(pointFunnel, options.bloomFilterSize(), options.bloomFilterFpp());
         this.regionalExaminedPositions = new LongOpenHashSet();
     }
 
-    @NotNull
-    public BloomFilter<Point> getBloomFilter() {
-        return bloomFilter;
+    /**
+     * Registers a given path position by adding it to the Bloom filter and marking it as examined
+     * within the regional positions set.
+     *
+     * @param point The point in the path to be registered. It represents a specific
+     *              location within the grid region.
+     */
+    public void insert(@NotNull Point point,
+                       long packedPoint) {
+        bloomFilter.put(point);
+        regionalExaminedPositions.add(packedPoint);
     }
 
-    @NotNull
-    public LongSet getRegionalExaminedPositions() {
-        return regionalExaminedPositions;
+    /**
+     * First Line of Defence. This method first checks the bloom filter if it might contain the
+     * provided {@param point}. If true, it performs an expensive containment check on the
+     * examined positions.
+     */
+    public boolean contains(@NotNull Point point,
+                            long packedPoint) {
+        return bloomFilter.mightContain(point)
+                && regionalExaminedPositions.contains(packedPoint);
     }
 }
