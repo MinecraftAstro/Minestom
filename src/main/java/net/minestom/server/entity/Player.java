@@ -88,6 +88,7 @@ import net.minestom.server.utils.MathUtils;
 import net.minestom.server.utils.PacketSendingUtils;
 import net.minestom.server.utils.async.AsyncUtils;
 import net.minestom.server.utils.chunk.ChunkUpdateLimitChecker;
+import net.minestom.server.utils.collection.ConcurrentMessageQueues;
 import net.minestom.server.utils.identity.NamedAndIdentified;
 import net.minestom.server.utils.inventory.PlayerInventoryUtils;
 import net.minestom.server.utils.time.Cooldown;
@@ -96,7 +97,7 @@ import net.minestom.server.utils.validate.Check;
 import net.minestom.server.world.DimensionType;
 import net.minestom.server.worldevent.WorldEvent;
 import org.intellij.lang.annotations.MagicConstant;
-import org.jctools.queues.MpscArrayQueue;
+import org.jctools.queues.MessagePassingQueue;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -177,7 +178,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
     private final AtomicInteger teleportId = new AtomicInteger();
     private int receivedTeleportId;
 
-    private final MpscArrayQueue<ClientPacket> packets = new MpscArrayQueue<>(ServerFlag.PLAYER_PACKET_QUEUE_SIZE);
+    private final MessagePassingQueue<ClientPacket> packets = ConcurrentMessageQueues.mpscArrayQueue(ServerFlag.PLAYER_PACKET_QUEUE_SIZE);
     private final boolean levelFlat;
     private ClientSettings settings = ClientSettings.DEFAULT;
     private float exp;
@@ -1566,7 +1567,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
         PlayerMeta playerMeta = getPlayerMeta();
         if (isInPlayState) playerMeta.setNotifyAboutChanges(false);
         playerMeta.setDisplayedSkinParts(settings.displayedSkinParts());
-        playerMeta.setRightMainHand(settings.mainHand() == ClientSettings.MainHand.RIGHT);
+        playerMeta.setMainHand(settings.mainHand());
         if (isInPlayState) playerMeta.setNotifyAboutChanges(true);
 
         final byte previousViewDistance = previous.viewDistance();
@@ -2206,16 +2207,24 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
     }
 
     public void refreshInput(boolean forward, boolean backward, boolean left, boolean right, boolean jump, boolean shift, boolean sprint) {
-        this.inputs.refresh(forward, backward, left, right, jump, shift, sprint);
+        boolean oldForward = this.inputs.forward();
+        boolean oldBackward = this.inputs.backward();
+        boolean oldLeft = this.inputs.left();
+        boolean oldRight = this.inputs.right();
+        boolean oldJump = this.inputs.jump();
+        boolean oldShift = this.inputs.shift();
+        boolean oldSprint = this.inputs.sprint();
 
-        boolean oldSneakingState = isSneaking();
-        setSneaking(shift);
-        if (oldSneakingState != shift) {
-            if (shift) {
-                EventDispatcher.call(new PlayerStartSneakingEvent(this));
-            } else {
-                EventDispatcher.call(new PlayerStopSneakingEvent(this));
-            }
+        this.inputs.refresh(forward, backward, left, right, jump, shift, sprint);
+        this.setSneaking(shift);
+
+        var event = new PlayerInputEvent(this, oldForward, oldBackward, oldLeft, oldRight, oldJump, oldShift, oldSprint);
+        EventDispatcher.call(event);
+
+        if (event.hasPressedShiftKey()) {
+            EventDispatcher.call(new PlayerStartSneakingEvent(this));
+        } else if (event.hasReleasedShiftKey()) {
+            EventDispatcher.call(new PlayerStopSneakingEvent(this));
         }
     }
 

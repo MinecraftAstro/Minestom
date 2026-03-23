@@ -11,6 +11,7 @@ import net.minestom.server.codec.Transcoder;
 import net.minestom.server.collision.BoundingBox;
 import net.minestom.server.collision.CollisionUtils;
 import net.minestom.server.collision.Shape;
+import net.minestom.server.collision.ShapeImpl;
 import net.minestom.server.component.DataComponent;
 import net.minestom.server.component.DataComponentMap;
 import net.minestom.server.component.DataComponents;
@@ -211,7 +212,9 @@ public final class RegistryData {
         TRIM_MATERIALS("trim_material.json"),
         TRIM_PATTERNS("trim_pattern.json"),
         WOLF_VARIANTS("wolf_variant.json"),
-        WOLF_SOUND_VARIANTS("wolf_sound_variant.json");
+        WOLF_SOUND_VARIANTS("wolf_sound_variant.json"),
+        ZOMBIE_NAUTILUS_VARIANTS("zombie_nautilus_variant.json"),
+        TIMELINES("timeline.json");
 
         private final String name;
 
@@ -251,6 +254,7 @@ public final class RegistryData {
         private final float jumpFactor;
         private final byte packedFlags;
         private final byte lightEmission;
+        private final byte lightBlocked;
         private final @Nullable BlockEntityType blockEntityType;
         private final @Nullable Material material;
         private final @Nullable BlockSoundType blockSoundType;
@@ -274,6 +278,7 @@ public final class RegistryData {
             var occludes = fromParent(parent, BlockEntry::occludes, main, "occludes", Properties::getBoolean, true);
             var requiresTool = fromParent(parent, BlockEntry::requiresTool, main, "requiresTool", Properties::getBoolean, true);
             this.lightEmission = fromParent(parent, BlockEntry::lightEmission, main, "lightEmission", Properties::getInt, 0).byteValue();
+            this.lightBlocked = fromParent(parent, BlockEntry::lightBlocked, main, "lightBlock", Properties::getInt, 0).byteValue();
             var replaceable = fromParent(parent, BlockEntry::isReplaceable, main, "replaceable", Properties::getBoolean, false);
             this.blockSoundType = fromParent(parent, BlockEntry::getBlockSoundType, main, "soundType", (properties, string) -> {
                 final String soundTypeKey = properties.getString(string);
@@ -297,17 +302,21 @@ public final class RegistryData {
                     String shape = properties.getString(string);
                     return CollisionUtils.parseCollisionShape(internCache, shape);
                 }, null);
-                this.occlusionShape = fromParent(parent, BlockEntry::occlusionShape, main, "occlusionShape", (properties, string) -> {
+                Shape occludeShape = fromParent(parent, BlockEntry::occlusionShape, main, "occlusionShape", (properties, string) -> {
                     String shape = properties.getString(string);
                     if (parent == null || parentProperties == null) // No parent, so we can just parse the shape
                         return CollisionUtils.parseOcclusionShape(internCache, shape, occludes, this.lightEmission);
-                    // TODO make this condition just change the condition; like adding lightData if emission just changes.
-                    if (shape != null || occludes != parent.occludes() || this.lightEmission != parent.lightEmission) {
+                    if (shape != null || occludes != parent.occludes()) {
                         if (shape == null) shape = parentProperties.getString(string);
                         return CollisionUtils.parseOcclusionShape(internCache, shape, occludes, this.lightEmission);
                     }
                     return parent.occlusionShape();
                 }, null);
+                // Apply possible lightEmission override, since that isn't specified in occlusionShape
+                if (parent != null && this.lightEmission != parent.lightEmission && occludeShape instanceof ShapeImpl shapeImpl) {
+                    occludeShape = shapeImpl.withLightEmission(this.lightEmission);
+                }
+                this.occlusionShape = occludeShape;
             }
             var redstoneConductor = fromParent(parent, BlockEntry::isRedstoneConductor, main, "redstoneConductor", Properties::getBoolean, null);
             var signalSource = fromParent(parent, BlockEntry::isSignalSource, main, "signalSource", Properties::getBoolean, false);
@@ -400,6 +409,10 @@ public final class RegistryData {
 
         public int lightEmission() {
             return lightEmission;
+        }
+
+        public int lightBlocked() {
+            return lightBlocked;
         }
 
         public boolean isReplaceable() {
