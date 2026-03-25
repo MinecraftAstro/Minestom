@@ -3,6 +3,7 @@ package net.minestom.server.collision;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
+import net.minestom.server.coordinate.mutable.MutableVec;
 import net.minestom.server.entity.EntityPose;
 import net.minestom.server.instance.block.BlockFace;
 import org.jetbrains.annotations.Contract;
@@ -14,6 +15,7 @@ import java.util.Iterator;
  * See <a href="https://minecraft.wiki/w/Minecraft_Wiki:Projects/wiki.vg_merge/Entity_metadata#Entities">the entity bounding box list</a>.
  */
 public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
+
     private static final BoundingBox SLEEPING = new BoundingBox(0.2, 0.2, 0.2);
     private static final BoundingBox SNEAKING = new BoundingBox(0.6, 1.5, 0.6);
     private static final BoundingBox SMALL = new BoundingBox(0.6, 0.6, 0.6);
@@ -41,7 +43,11 @@ public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
     }
 
     @Override
-    public boolean intersectBoxSwept(Point rayStart, Point rayDirection, Point shapePos, BoundingBox moving, SweepResult finalResult) {
+    public boolean intersectBoxSwept(Point rayStart,
+                                     Point rayDirection,
+                                     Point shapePos,
+                                     BoundingBox moving,
+                                     SweepResult finalResult) {
         if (RayUtils.BoundingBoxIntersectionCheck(moving, rayStart, rayDirection, this, shapePos, finalResult)) {
             finalResult.collidedPositionX = rayStart.x() + rayDirection.x() * finalResult.res;
             finalResult.collidedPositionY = rayStart.y() + rayDirection.y() * finalResult.res;
@@ -166,6 +172,7 @@ public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
     }
 
     public enum AxisMask {
+
         X,
         Y,
         Z,
@@ -180,45 +187,12 @@ public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
         return new PointIterator(this, point, axisMask, axis);
     }
 
-    public static class MutablePoint {
-        double x, y, z;
+    public static class PointIterator implements Iterator<MutableVec> {
 
-        public void set(double x, double y, double z) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-        public double x() {
-            return x;
-        }
-
-        public double y() {
-            return y;
-        }
-
-        public double z() {
-            return z;
-        }
-
-        public int blockX() {
-            return (int) Math.floor(x);
-        }
-
-        public int blockY() {
-            return (int) Math.floor(y);
-        }
-
-        public int blockZ() {
-            return (int) Math.floor(z);
-        }
-    }
-
-    public static class PointIterator implements Iterator<MutablePoint> {
         private double sx, sy, sz;
         double x, y, z;
         private double minX, minY, minZ, maxX, maxY, maxZ;
-        private final MutablePoint point = new MutablePoint();
+        private final MutableVec mutablePoint = new MutableVec();
 
         public PointIterator() {
         }
@@ -272,8 +246,8 @@ public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
         }
 
         @Override
-        public MutablePoint next() {
-            point.set(x + sx, y + sy, z + sz);
+        public MutableVec next() {
+            mutablePoint.set(x + sx, y + sy, z + sz);
 
             x++;
             if (x > maxX) {
@@ -284,7 +258,8 @@ public record BoundingBox(Vec relativeStart, Vec relativeEnd) implements Shape {
                     z++;
                 }
             }
-            return point;
+
+            return mutablePoint;
         }
     }
 

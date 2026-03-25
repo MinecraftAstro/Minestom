@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.function.Function;
 
 final class EntityCollision {
+
     static List<EntityCollisionResult> checkCollision(Instance instance, BoundingBox boundingBox, Point point, Vec entityVelocity, double extendRadius, Function<Entity, Boolean> entityFilter, @Nullable PhysicsResult physicsResult) {
         double minimumRes = physicsResult != null ? physicsResult.res().res : Double.MAX_VALUE;
 

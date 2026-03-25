@@ -60,6 +60,7 @@ public class Main {
         commandManager.register(new MinecartCommand());
         commandManager.register(new BelowNameCommand());
         commandManager.register(new InventoryCommand());
+        commandManager.register(new SweptIntersectionCommand());
 
         commandManager.setUnknownCommandCallback((sender, command) -> sender.sendMessage(Component.text("Unknown command", NamedTextColor.RED)));
 

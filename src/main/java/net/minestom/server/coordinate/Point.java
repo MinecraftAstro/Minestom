@@ -50,6 +50,16 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     }
 
     /**
+     * Gets the center of the block for the X component.
+     *
+     * @return the center block X
+     */
+    @Contract(pure = true)
+    default double centerBlockX() {
+        return blockX() + 0.5D;
+    }
+
+    /**
      * Gets the floored value of the Y component
      *
      * @return the block Y
@@ -60,6 +70,16 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     }
 
     /**
+     * Gets the center of the block for the Y component.
+     *
+     * @return the center block Y
+     */
+    @Contract(pure = true)
+    default double centerBlockY() {
+        return blockY() + 0.5D;
+    }
+
+    /**
      * Gets the floored value of the Z component
      *
      * @return the block Z
@@ -67,6 +87,16 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     @Contract(pure = true)
     default int blockZ() {
         return globalToBlock(z());
+    }
+
+    /**
+     * Gets the center of the block for the Z component.
+     *
+     * @return the center block Z
+     */
+    @Contract(pure = true)
+    default double centerBlockZ() {
+        return blockZ() + 0.5D;
     }
 
     @Contract(pure = true)
@@ -226,6 +256,16 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     }
 
     @Contract(pure = true)
+    default boolean withinDistanceSquared(double x, double y, double z, double distance) {
+        return distanceSquared(x, y, z) <= (distance * distance);
+    }
+
+    @Contract(pure = true)
+    default boolean withinDistanceSquared(Point point, double distance) {
+        return distanceSquared(point) <= (distance * distance);
+    }
+
+    @Contract(pure = true)
     default double distance(double x, double y, double z) {
         return Math.sqrt(distanceSquared(x, y, z));
     }
@@ -245,18 +285,32 @@ public sealed interface Point permits Vec, Pos, BlockVec {
         return distance(point.x(), point.y(), point.z());
     }
 
+    @Contract(pure = true)
+    default boolean withinDistance(double x, double y, double z, double distance) {
+        return distance(x, y, z) <= distance;
+    }
+
+    @Contract(pure = true)
+    default boolean withinDistance(Point point, double distance) {
+        return distance(point) <= distance;
+    }
+
+    @Contract(pure = true)
     default double manhattanDistance(int x, int y, int z) {
         return Math.abs(blockX() - x) + Math.abs(blockY() - y) + Math.abs(blockZ() - z);
     }
 
+    @Contract(pure = true)
     default double manhattanDistance(Point point) {
         return manhattanDistance(point.blockX(), point.blockY(), point.blockZ());
     }
 
+    @Contract(pure = true)
     default double chebyshevDistance(double x, double y, double z) {
         return Math.max(Math.abs(x() - x), Math.max(Math.abs(y() - y), Math.abs(z() - z)));
     }
 
+    @Contract(pure = true)
     default double chebyshevDistance(Point point) {
         return chebyshevDistance(point.x(), point.y(), point.z());
     }

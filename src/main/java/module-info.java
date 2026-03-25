@@ -46,6 +46,7 @@ module net.minestom.server {
     exports net.minestom.server.component;
     exports net.minestom.server.condition;
     exports net.minestom.server.coordinate;
+    exports net.minestom.server.coordinate.mutable;
     exports net.minestom.server.crypto;
     exports net.minestom.server.dialog;
     exports net.minestom.server.entity;
@@ -154,8 +155,10 @@ module net.minestom.server {
     exports net.minestom.server.pathfinding.context;
     exports net.minestom.server.pathfinding.cost;
     exports net.minestom.server.pathfinding.data;
-    exports net.minestom.server.pathfinding.validation;
-    exports net.minestom.server.pathfinding.validation.types;
+    exports net.minestom.server.pathfinding.evaluator;
+    exports net.minestom.server.pathfinding.evaluator.result;
+    exports net.minestom.server.pathfinding.evaluator.types;
+    exports net.minestom.server.pathfinding.movement;
     exports net.minestom.server.pathfinding.options;
     exports net.minestom.server.pathfinding.utils;
     exports net.minestom.server.ping;

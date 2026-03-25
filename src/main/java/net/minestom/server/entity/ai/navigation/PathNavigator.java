@@ -14,6 +14,8 @@ import net.minestom.server.utils.chunk.ChunkUtils;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
@@ -21,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class PathNavigator {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PathNavigator.class);
 
     protected final EntityMob entityMob;
 
@@ -60,7 +64,7 @@ public abstract class PathNavigator {
         if (entityMob.isDead())
             return;
 
-        // don't perform any navigation if the path is null or if it failed to find any paths
+        // don't perform any navigation if the path is null or if it failed to find a path
         if (currentPath == null || currentPath.state() == Path.State.FAILED)
             return;
 
@@ -109,14 +113,21 @@ public abstract class PathNavigator {
         final CompletableFuture<Path> futurePath = pathfinder.findPath(
                 position,
                 target,
-                new MobContext(instance, entityMob.getBoundingBox(), entityMob.getAttributeValue(Attribute.SAFE_FALL_DISTANCE)),
+                new MobContext(
+                        instance,
+                        entityMob.getBoundingBox(),
+                        position,
+                        entityMob.getAttributeValue(Attribute.STEP_HEIGHT),
+                        entityMob.getAttributeValue(Attribute.JUMP_STRENGTH),
+                        entityMob.getAttributeValue(Attribute.SAFE_FALL_DISTANCE)
+                ),
                 completionRange,
                 cancelPathfindingFlag
         );
 
         futurePath.whenComplete((path, throwable) -> {
             if (throwable != null) {
-                throwable.printStackTrace();
+                LOGGER.warn("Failed to find path for entity {}", entityMob.getUuid(), throwable);
                 return;
             }
 

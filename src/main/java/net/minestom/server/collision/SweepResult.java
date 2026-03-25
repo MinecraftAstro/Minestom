@@ -18,7 +18,17 @@ public final class SweepResult {
      * @param normalY -1 if intersected on bottom, 1 if intersected on top
      * @param normalZ -1 if intersected on front, 1 if intersected on back
      */
-    public SweepResult(double res, double normalX, double normalY, double normalZ, Shape collidedShape, double collidedPosX, double collidedPosY, double collidedPosZ, double collidedShapeX, double collidedShapeY, double collidedShapeZ) {
+    public SweepResult(double res,
+                       double normalX,
+                       double normalY,
+                       double normalZ,
+                       Shape collidedShape,
+                       double collidedPosX,
+                       double collidedPosY,
+                       double collidedPosZ,
+                       double collidedShapeX,
+                       double collidedShapeY,
+                       double collidedShapeZ) {
         this.res = res;
         this.normalX = normalX;
         this.normalY = normalY;

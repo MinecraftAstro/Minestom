@@ -8,7 +8,7 @@ import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.data.Node;
 import org.jetbrains.annotations.NotNull;
 
-public final class ValidationContext {
+public final class EvaluationContext {
 
     private final MobContext mobContext;
 
@@ -27,7 +27,7 @@ public final class ValidationContext {
     private final Shape newBlockShape;
     private final Shape belowNewBlockShape;
 
-    public ValidationContext(@NotNull MobContext mobContext,
+    public EvaluationContext(@NotNull MobContext mobContext,
                              @NotNull Node oldNode,
                              @NotNull Node newNode,
                              @NotNull Point oldPoint,

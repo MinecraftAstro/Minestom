@@ -7,7 +7,6 @@ import net.minestom.server.entity.EntityMob;
 import net.minestom.server.entity.Player;
 import net.minestom.server.entity.attribute.Attribute;
 import net.minestom.server.instance.Instance;
-import net.minestom.server.particle.Particle;
 import net.minestom.server.pathfinding.data.Path;
 import net.minestom.server.pathfinding.utils.PathUtils;
 
@@ -56,7 +55,7 @@ public class ComeCommand extends Command {
                     bestEffortAmount++;
                 }
 
-                PathUtils.drawPath(path, Particle.COMPOSTER);
+                PathUtils.drawPath(entityMob, path);
             }
             long endTime = System.currentTimeMillis();
 

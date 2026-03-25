@@ -3,6 +3,7 @@ package net.minestom.demo.commands;
 import net.minestom.server.collision.BoundingBox;
 import net.minestom.server.command.builder.Command;
 import net.minestom.server.command.builder.condition.Conditions;
+import net.minestom.server.coordinate.mutable.MutableVec;
 import net.minestom.server.entity.Player;
 import net.minestom.server.instance.block.Block;
 
@@ -23,7 +24,7 @@ public class AroundCommand extends Command {
     private boolean hasClearance(Player player) {
         final BoundingBox.PointIterator blockIterator = player.getBoundingBox().getBlocks(player.getPosition());
         while (blockIterator.hasNext()) {
-            final BoundingBox.MutablePoint blockPoint = blockIterator.next();
+            final MutableVec blockPoint = blockIterator.next();
             final Block block = player.getInstance().getBlock(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ(), Block.Getter.Condition.TYPE);
 
             if (block == null) continue;

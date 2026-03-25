@@ -6,6 +6,8 @@ import net.minestom.server.pathfinding.data.SpatialData;
 import net.minestom.server.pathfinding.data.Node;
 import org.jetbrains.annotations.NotNull;
 
+// handles the context of a pathfinding session
+// this helps us from passing around a bunch of arguments when calling different pathfinding functions
 public final class PathfindingContext {
 
     private final BinaryMinimumHeap openSet;

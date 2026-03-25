@@ -2,12 +2,12 @@ package net.minestom.server.pathfinding.options;
 
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.pathfinding.cost.CostProcessor;
+import net.minestom.server.pathfinding.evaluator.types.FastGroundNodeEvaluator;
 import net.minestom.server.pathfinding.movement.MovementStrategies;
-import net.minestom.server.pathfinding.validation.NodeValidator;
+import net.minestom.server.pathfinding.evaluator.NodeEvaluator;
 import net.minestom.server.utils.validate.Check;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -16,7 +16,7 @@ public final class PathfinderOptions {
 
     private final boolean async;
     private final Collection<Vec> movementStrategy;
-    private final List<NodeValidator> nodeValidators;
+    private final NodeEvaluator nodeEvaluator;
     private final CostProcessor costProcessor;
     // 0 max iterations indicates that there is no max iterations for paths
     private final int maxIterations;
@@ -36,7 +36,7 @@ public final class PathfinderOptions {
 
     private PathfinderOptions(boolean async,
                               @NotNull Collection<Vec> movementStrategy,
-                              @NotNull List<NodeValidator> nodeValidators,
+                              @NotNull NodeEvaluator nodeEvaluator,
                               @NotNull CostProcessor costProcessor,
                               int maxIterations,
                               int maxLength,
@@ -48,7 +48,7 @@ public final class PathfinderOptions {
                               boolean debug) {
         this.async = async;
         this.movementStrategy = movementStrategy;
-        this.nodeValidators = nodeValidators;
+        this.nodeEvaluator = nodeEvaluator;
         this.costProcessor = costProcessor;
         Check.stateCondition(maxIterations < 0, "Pathfinding max iterations must be greater than or equal to 0.");
         this.maxIterations = maxIterations;
@@ -73,8 +73,8 @@ public final class PathfinderOptions {
     }
 
     @NotNull
-    public List<NodeValidator> nodeValidators() {
-        return nodeValidators;
+    public NodeEvaluator nodeEvaluator() {
+        return nodeEvaluator;
     }
 
     @NotNull
@@ -118,7 +118,7 @@ public final class PathfinderOptions {
 
         private boolean async;
         private Collection<Vec> movementStrategy;
-        private List<NodeValidator> nodeValidators;
+        private NodeEvaluator nodeEvaluator;
         private CostProcessor costProcessor;
         private int maxIterations;
         private int maxLength;
@@ -136,7 +136,7 @@ public final class PathfinderOptions {
         public Builder() {
             this.async = false;
             this.movementStrategy = MovementStrategies.BASIC_AND_DIAGONAL;
-            this.nodeValidators = new ArrayList<>();
+            this.nodeEvaluator = new FastGroundNodeEvaluator();
             this.costProcessor = new CostProcessor.Builder()
                     .build();
             this.maxIterations = 50_000;
@@ -162,14 +162,8 @@ public final class PathfinderOptions {
         }
 
         @NotNull
-        public Builder nodeValidator(@NotNull NodeValidator nodeValidator) {
-            this.nodeValidators.add(nodeValidator);
-            return this;
-        }
-
-        @NotNull
-        public Builder nodeValidators(@NotNull List<NodeValidator> nodeValidators) {
-            this.nodeValidators = nodeValidators;
+        public Builder nodeEvaluator(@NotNull NodeEvaluator nodeEvaluator) {
+            this.nodeEvaluator = nodeEvaluator;
             return this;
         }
 
@@ -232,7 +226,7 @@ public final class PathfinderOptions {
             return new PathfinderOptions(
                     async,
                     List.copyOf(movementStrategy),
-                    List.copyOf(nodeValidators),
+                    nodeEvaluator,
                     costProcessor,
                     maxIterations,
                     maxLength,

@@ -1,6 +1,7 @@
 package net.minestom.server.pathfinding.data;
 
 import net.minestom.server.coordinate.Point;
+import net.minestom.server.instance.block.Block;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,6 +17,8 @@ public final class Node implements Comparable<Node> {
 
     private final Point start;
     private final Point target;
+
+    private Block groundBlock;
 
     private Type type;
 
@@ -66,6 +69,10 @@ public final class Node implements Comparable<Node> {
         this.parentNode = parentNode;
     }
 
+    public double getParentGCost() {
+        return parentNode == null ? 0.0D : parentNode.getG();
+    }
+
     public int depth() {
         return depth;
     }
@@ -78,6 +85,15 @@ public final class Node implements Comparable<Node> {
     @NotNull
     public Point target() {
         return target;
+    }
+
+    public void setGroundBlock(@Nullable Block groundBlock) {
+        this.groundBlock = groundBlock;
+    }
+
+    @NotNull
+    public Block getGroundBlock() {
+        return groundBlock == null ? Block.AIR : groundBlock;
     }
 
     public void setType(@NotNull Type type) {
@@ -137,6 +153,12 @@ public final class Node implements Comparable<Node> {
 
         STEP,
 
-        JUMP
+        JUMP,
+
+        // move through water
+        SWIM,
+
+        // float on water, this happens if the path ends up with the end point being a liquid block
+        FLOAT
     }
 }

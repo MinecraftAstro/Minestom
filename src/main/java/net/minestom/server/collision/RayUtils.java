@@ -5,6 +5,7 @@ import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
 
 final class RayUtils {
+
     /**
      * Check if a bounding box intersects a ray
      *
@@ -14,7 +15,12 @@ final class RayUtils {
      * @param finalResult
      * @return true if an intersection between the ray and the bounding box was found
      */
-    public static boolean BoundingBoxIntersectionCheck(BoundingBox moving, Point rayStart, Point rayDirection, BoundingBox collidableStatic, Point staticCollidableOffset, SweepResult finalResult) {
+    public static boolean BoundingBoxIntersectionCheck(BoundingBox moving,
+                                                       Point rayStart,
+                                                       Point rayDirection,
+                                                       BoundingBox collidableStatic,
+                                                       Point staticCollidableOffset,
+                                                       SweepResult finalResult) {
         Point bbCentre = new Vec(moving.minX() + moving.width() / 2, moving.minY() + moving.height() / 2, moving.minZ() + moving.depth() / 2);
         Point rayCentre = rayStart.add(bbCentre);
 

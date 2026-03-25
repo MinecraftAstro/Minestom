@@ -4,7 +4,6 @@ import net.minestom.server.collision.BoundingBox;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.old.pathfinding.PNode;
 import net.minestom.server.instance.block.Block;
-import net.minestom.server.pathfinding.utils.PathUtils;
 
 import java.util.Collection;
 import java.util.OptionalDouble;
