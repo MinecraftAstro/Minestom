@@ -69,10 +69,7 @@ import net.minestom.server.utils.position.PositionUtils;
 import net.minestom.server.utils.time.TimeUnit;
 import net.minestom.server.utils.validate.Check;
 import org.intellij.lang.annotations.MagicConstant;
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnknownNullability;
+import org.jetbrains.annotations.*;
 
 import java.time.Duration;
 import java.time.temporal.TemporalUnit;
@@ -129,6 +126,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     protected BoundingBox boundingBox;
     private PhysicsResult previousPhysicsResult = null;
 
+    @Nullable
     protected Entity vehicle;
 
     // Velocity
@@ -142,8 +140,9 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     protected int gravityTickCount; // Number of tick where gravity tick was applied
 
     private final int id;
-    // Players must be aware of all surrounding entities
-    // General entities should only be aware of surrounding players to update their viewing list
+
+    // players must be aware of all the surrounding entities
+    // general entities should only be aware of surrounding players to update their viewing list
     private final EntityTracker.Target<Entity> trackingTarget = this instanceof Player ?
             EntityTracker.Target.ENTITIES : EntityTracker.Target.class.cast(EntityTracker.Target.PLAYERS);
     protected final EntityTracker.Update<Entity> trackingUpdate = new EntityTracker.Update<>() {
@@ -168,6 +167,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     protected final EntityView viewEngine = new EntityView(this);
     protected final Set<Player> viewers = viewEngine.set;
+
     private final TagHandler tagHandler = TagHandler.newHandler();
     private final Scheduler scheduler = Scheduler.newScheduler();
     private final EventNode<EntityEvent> eventNode;
@@ -179,6 +179,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     private final Set<Entity> passengers = new CopyOnWriteArraySet<>();
 
     private final Set<Entity> leashedEntities = new CopyOnWriteArraySet<>();
+    @Nullable
     private Entity leashHolder;
 
     protected EntityType entityType; // UNSAFE to change, modify at your own risk
@@ -515,14 +516,20 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @Override
     public final boolean addViewer(Player player) {
         Check.stateCondition(!isActive(), "Entities must be in an instance before adding viewers");
-        if (!viewEngine.manualAdd(player)) return false;
+
+        if (!viewEngine.manualAdd(player))
+            return false;
+
+        System.out.println("added viewer for entity: " + entityType);
         updateNewViewer(player);
         return true;
     }
 
     @Override
     public final boolean removeViewer(Player player) {
-        if (!viewEngine.manualRemove(player)) return false;
+        if (!viewEngine.manualRemove(player))
+            return false;
+
         updateOldViewer(player);
         return true;
     }
@@ -538,7 +545,16 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         player.sendPacket(getSpawnPacket());
         if (hasVelocity()) player.sendPacket(getVelocityPacket());
         player.sendPacket(this.getMetadataPacket());
-        // Passengers are handled in EntityView
+
+        // check if this entity is a passenger
+        if (vehicle != null) {
+            vehicle.sendPacketToViewersAndSelf(vehicle.getPassengersPacket());
+        }
+
+        // check if this entity has any passengers that need to be added
+        if (!passengers.isEmpty()) {
+            sendPacketToViewersAndSelf(getPassengersPacket());
+        }
 
         // Leashes
         if (leashHolder != null && (player.equals(leashHolder) || leashHolder.isViewer(player))) {
@@ -639,11 +655,13 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             // remove expired effects
             effectTick();
         }
+
         // Scheduled synchronization
         if (vehicle == null && ticks >= nextSynchronizationTick) {
             synchronizePosition();
             sendPacketToViewers(getVelocityPacket());
         }
+
         // End of tick scheduled tasks
         this.scheduler.processTickEnd();
     }
@@ -651,6 +669,8 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @ApiStatus.Internal
     protected void movementTick() {
         this.gravityTickCount = onGround ? 0 : gravityTickCount + 1;
+
+        // vehicles handle the passengers movement
         if (vehicle != null) return;
 
         boolean entityIsPlayer = this instanceof Player;
@@ -731,7 +751,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     }
 
     /**
-     * Each entity has an unique id (server-wide) which will change after a restart.
+     * Each entity has a unique id (server-wide) which will change after a restart.
      *
      * @return the unique entity id
      * @see Instance#getEntityById(int) to retrieve an entity based on its id
@@ -1064,16 +1084,19 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     /**
      * Removes a passenger to this entity.
      *
-     * @param entity the passenger to remove
-     * @throws NullPointerException  if {@code entity} is null
+     * @param passenger the passenger to remove
+     * @throws NullPointerException  if {@code passenger} is null
      * @throws IllegalStateException if {@link #getInstance()} returns null
      */
-    public void removePassenger(Entity entity) {
+    public void removePassenger(Entity passenger) {
         Check.stateCondition(instance == null, "You need to set an instance using Entity#setInstance");
-        if (!passengers.remove(entity)) return;
-        entity.vehicle = null;
+
+        if (!passengers.remove(passenger))
+            return;
+
+        passenger.vehicle = null;
         sendPacketToViewersAndSelf(getPassengersPacket());
-        entity.synchronizePosition();
+        passenger.synchronizePosition();
     }
 
     /**
@@ -1090,6 +1113,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      *
      * @return an unmodifiable list containing all the entity passengers
      */
+    @UnmodifiableView
     public Set<Entity> getPassengers() {
         return Collections.unmodifiableSet(passengers);
     }

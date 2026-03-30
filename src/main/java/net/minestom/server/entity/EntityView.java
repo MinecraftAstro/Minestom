@@ -16,7 +16,9 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 final class EntityView {
-    private static final int RANGE = ServerFlag.ENTITY_VIEW_DISTANCE;
+
+    private static final int VIEW_DISTANCE = ServerFlag.ENTITY_VIEW_DISTANCE;
+
     private final Entity entity;
     private final Set<Player> manualViewers = new HashSet<>();
 
@@ -28,17 +30,24 @@ final class EntityView {
     final Set<Player> set = new SetImpl();
     private final Object mutex = this;
 
+    @Nullable
     private volatile TrackedLocation trackedLocation;
 
     public EntityView(Entity entity) {
         this.entity = entity;
-        this.viewableOption = new Option<>(EntityTracker.Target.PLAYERS, Entity::autoViewEntities,
+
+        this.viewableOption = new Option<>(
+                EntityTracker.Target.PLAYERS,
+                Entity::autoViewEntities,
                 player -> showEntityToPlayer(this.entity, player),
                 player -> hideEntityFromPlayer(this.entity, player)
         );
-        this.viewerOption = new Option<>(EntityTracker.Target.ENTITIES, Entity::isAutoViewable,
+        this.viewerOption = new Option<>(
+                EntityTracker.Target.ENTITIES,
+                Entity::isAutoViewable,
                 entity instanceof Player player ? e -> e.viewEngine.viewableOption.addition.accept(player) : null,
-                entity instanceof Player player ? e -> e.viewEngine.viewableOption.removal.accept(player) : null);
+                entity instanceof Player player ? e -> e.viewEngine.viewableOption.removal.accept(player) : null
+        );
     }
 
     private static void showEntityToPlayer(Entity entity, Player player) {
@@ -49,22 +58,34 @@ final class EntityView {
         if (visibleChain.isEmpty()) return;
 
         // Send spawn packets
-        for (Entity e : visibleChain) {
-            e.updateNewViewer(player);
+        for (Entity newlyVisibleEntity : visibleChain) {
+            // skip over passengers
+            //if (newlyVisibleEntity.getVehicle() != null)
+            //    continue;
+
+            System.out.println("Send spawn packet for: " + newlyVisibleEntity.getEntityType());
+            newlyVisibleEntity.updateNewViewer(player);
         }
 
         // Send passenger packets (in reverse order)
         for (int i = visibleChain.size() - 1; i >= 0; i--) {
-            Entity e = visibleChain.get(i);
-            if (e.hasPassenger() && e.getPassengers().stream().anyMatch(visibleChain::contains)) {
-                player.sendPacket(e.getPassengersPacket());
+            Entity newlyVisiblePassenger = visibleChain.get(i);
+            if (newlyVisiblePassenger.getVehicle() != null) {
+                System.out.println("Send passenger packet for: " + newlyVisiblePassenger.getEntityType());
+                player.sendPacket(newlyVisiblePassenger.getVehicle().getPassengersPacket());
             }
+
+//            if (e.hasPassenger() && e.getPassengers().stream().anyMatch(visibleChain::contains)) {
+//                System.out.println("Send passenger packet");
+//                player.sendPacket(e.getPassengersPacket());
+//            }
         }
     }
 
     private static void collectEntityChain(Entity entity, Player player, List<Entity> chain) {
         var lock1 = player.getEntityId() < entity.getEntityId() ? player : entity;
         var lock2 = lock1 == entity ? player : entity;
+
         boolean shouldAdd = false;
         synchronized (lock1.viewEngine.mutex) {
             synchronized (lock2.viewEngine.mutex) {
@@ -73,18 +94,29 @@ final class EntityView {
                         entity.viewEngine.viewableOption.predicate(player) &&
                         player.viewEngine.viewerOption.predicate(entity)) {
 
+                    System.out.println("should add: " + entity.getEntityType());
                     entity.viewEngine.viewableOption.register(player);
                     player.viewEngine.viewerOption.register(entity);
                     shouldAdd = true;
                 }
             }
         }
+
         if (shouldAdd) {
             chain.add(entity);
-            for (Entity passenger : entity.getPassengers()) {
-                collectEntityChain(passenger, player, chain);
-            }
         }
+
+        // this fixes the issue where passengers that have their viewing rule updated do not properly sync
+        for (Entity passenger : entity.getPassengers()) {
+            collectEntityChain(passenger, player, chain);
+        }
+
+//        if (shouldAdd) {
+//            chain.add(entity);
+//            for (Entity passenger : entity.getPassengers()) {
+//                collectEntityChain(passenger, player, chain);
+//            }
+//        }
     }
 
     private static void hideEntityFromPlayer(Entity entity, Player player) {
@@ -96,6 +128,7 @@ final class EntityView {
                 player.viewEngine.viewerOption.unregister(entity);
             }
         }
+
         entity.updateOldViewer(player);
         final Set<Entity> passengers = entity.getPassengers();
         if (!passengers.isEmpty()) {
@@ -114,22 +147,26 @@ final class EntityView {
 
     public boolean manualAdd(Player player) {
         if (player == this.entity) return false;
+
         synchronized (mutex) {
             if (manualViewers.add(player)) {
                 viewableOption.bitSet.add(player.getEntityId());
                 return true;
             }
+
             return false;
         }
     }
 
     public boolean manualRemove(Player player) {
         if (player == this.entity) return false;
+
         synchronized (mutex) {
             if (manualViewers.remove(player)) {
                 viewableOption.bitSet.remove(player.getEntityId());
                 return true;
             }
+
             return false;
         }
     }
@@ -160,12 +197,14 @@ final class EntityView {
         if (this.entity instanceof Player && viewerOption.isAuto() && entity.isAutoViewable()) {
             if (viewer != null) viewer.accept(entity); // Send packet to this player
         }
+
         if (entity instanceof Player player && player.autoViewEntities() && viewableOption.isAuto()) {
             if (viewable != null) viewable.accept(player); // Send packet to the range-visible player
         }
     }
 
     public final class Option<T extends Entity> {
+
         @SuppressWarnings("rawtypes")
         private static final AtomicIntegerFieldUpdater<EntityView.Option> UPDATER = AtomicIntegerFieldUpdater.newUpdater(EntityView.Option.class, "auto");
         // Entities that should be tracked from this option
@@ -182,8 +221,10 @@ final class EntityView {
         // null if auto-viewable
         private Predicate<T> predicate = null;
 
-        public Option(EntityTracker.Target<T> target, Predicate<T> loopPredicate,
-                      Consumer<T> addition, Consumer<T> removal) {
+        public Option(EntityTracker.Target<T> target,
+                      Predicate<T> loopPredicate,
+                      Consumer<T> addition,
+                      Consumer<T> removal) {
             this.target = target;
             this.loopPredicate = loopPredicate;
             this.addition = addition;
@@ -214,10 +255,19 @@ final class EntityView {
 
         public void updateAuto(boolean autoViewable) {
             final boolean previous = UPDATER.getAndSet(this, autoViewable ? 1 : 0) == 1;
-            if (previous != autoViewable) {
-                synchronized (mutex) {
-                    if (autoViewable) update(loopPredicate, addition);
-                    else update(this::isRegistered, removal);
+
+            // make sure that the previous value is not equal to the new value (autoViewable)
+            // if it is, then we don't have to worry about any view updates
+            if (previous == autoViewable)
+                return;
+
+            synchronized (mutex) {
+                if (autoViewable) {
+                    System.out.println("Add all potential viewers");
+                    update(loopPredicate, addition);
+                } else {
+                    System.out.println("Remove all viewers");
+                    update(this::isRegistered, removal);
                 }
             }
         }
@@ -253,12 +303,27 @@ final class EntityView {
 
         private void update(Predicate<T> visibilityPredicate,
                             Consumer<T> action) {
-            references().forEach(entity -> {
-                if (entity == EntityView.this.entity || !visibilityPredicate.test(entity)) return;
-                if (entity instanceof Player player && manualViewers.contains(player)) return;
-                if (entity.getVehicle() != null) return;
+            for (T entity : references()) {
+                System.out.println("Test 1");
+                // skip over self or invisible entities
+                if (entity == EntityView.this.entity || !visibilityPredicate.test(entity))
+                    continue;
+
+                System.out.println("Test 2");
+                // skip over manual viewers
+                if (entity instanceof Player player && manualViewers.contains(player))
+                    continue;
+
+                System.out.println("Test 3");
+                System.out.println(entity);
+                // skip over passengers
+                if (entity.getVehicle() != null)
+                    continue;
+
+                System.out.println("Test 4");
                 action.accept(entity);
-            });
+                System.out.println();
+            }
         }
 
         private int lastSize;
@@ -270,7 +335,7 @@ final class EntityView {
             final Point point = trackedLocation.point();
 
             Int2ObjectOpenHashMap<T> entityMap = new Int2ObjectOpenHashMap<>(lastSize);
-            instance.getEntityTracker().nearbyEntitiesByChunkRange(point, RANGE, target,
+            instance.getEntityTracker().nearbyEntitiesByChunkRange(point, VIEW_DISTANCE, target,
                     (entity) -> entityMap.putIfAbsent(entity.getEntityId(), entity));
             this.lastSize = entityMap.size();
             return entityMap.values();
@@ -278,6 +343,7 @@ final class EntityView {
     }
 
     final class SetImpl extends AbstractSet<Player> {
+
         @Override
         public Iterator<Player> iterator() {
             List<Player> players;

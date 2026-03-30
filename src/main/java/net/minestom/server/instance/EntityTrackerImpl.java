@@ -29,6 +29,7 @@ import static net.minestom.server.instance.Chunk.CHUNK_SIZE_X;
 import static net.minestom.server.instance.Chunk.CHUNK_SIZE_Z;
 
 final class EntityTrackerImpl implements EntityTracker {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(EntityTrackerImpl.class);
 
     static final AtomicInteger TARGET_COUNTER = new AtomicInteger();
