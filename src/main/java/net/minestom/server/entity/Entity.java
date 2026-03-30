@@ -118,6 +118,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     private final CachedPacket destroyPacketCache = new CachedPacket(() -> new DestroyEntitiesPacket(getEntityId()));
 
     protected Instance instance;
+    @Nullable
     protected Chunk currentChunk;
     protected Pos position; // Should be updated by setPositionInternal only.
     protected float headRotation;
@@ -543,11 +544,13 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         if (leashHolder != null && (player.equals(leashHolder) || leashHolder.isViewer(player))) {
             player.sendPacket(getAttachEntityPacket());
         }
+
         for (Entity entity : leashedEntities) {
             if (entity.isViewer(player)) {
                 player.sendPacket(entity.getAttachEntityPacket());
             }
         }
+
         // Head position
         player.sendPacket(new EntityHeadLookPacket(getEntityId(), headRotation));
     }
@@ -1023,25 +1026,40 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     /**
      * Adds a new passenger to this entity.
      *
-     * @param entity the new passenger
-     * @throws NullPointerException  if {@code entity} is null
+     * @param passenger the new passenger
+     * @throws NullPointerException  if {@code passenger} is null
      * @throws IllegalStateException if {@link #getInstance()} returns null or the passenger cannot be added
      */
-    public void addPassenger(Entity entity) {
+    public void addPassenger(Entity passenger) {
         final Instance currentInstance = this.instance;
         Check.stateCondition(currentInstance == null, "You need to set an instance using Entity#setInstance");
-        Check.stateCondition(entity == getVehicle(), "Cannot add the entity vehicle as a passenger");
-        final Entity vehicle = entity.getVehicle();
-        if (vehicle != null) vehicle.removePassenger(entity);
-        if (!currentInstance.equals(entity.getInstance()))
-            entity.setInstance(currentInstance, position).join();
-        this.passengers.add(entity);
-        entity.vehicle = this;
-        sendPacketToViewersAndSelf(getPassengersPacket());
-        updatePassengerPosition(position, entity);
-        entity.synchronizePosition();
-    }
+        Check.stateCondition(passenger == getVehicle(), "Cannot add the entity vehicle as a passenger");
 
+        // if the passenger entity is already a passenger on another entity, then we must remove them as a passenger from that entity
+        // entities can only ride 1 entity at a time
+        final Entity vehicle = passenger.getVehicle();
+        if (vehicle != null)
+            vehicle.removePassenger(passenger);
+
+        // make sure that the passenger entity is in the correct instance as the vehicle
+        // if not, then we'll need to set their instance to the vehicle's instance
+        if (!currentInstance.equals(passenger.getInstance())) {
+            passenger.setInstance(currentInstance, position).join();
+        }
+
+        // check to make sure that our entity is standing in a loaded chunk
+        // if the entity is not standing in a loaded chunk then we'll forcefully load it
+        // this fixes an NPE that happens when you set the instance of an entity but don't forcefully complete the CompletableFuture
+        if (currentChunk == null) {
+            currentInstance.loadChunk(position).join();
+        }
+
+        this.passengers.add(passenger);
+        passenger.vehicle = this;
+        sendPacketToViewersAndSelf(getPassengersPacket());
+        updatePassengerPosition(position, passenger);
+        passenger.synchronizePosition();
+    }
 
     /**
      * Removes a passenger to this entity.
@@ -1583,6 +1601,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             this.previousPosition = Pos.ZERO;
             this.lastSyncedPosition = Pos.ZERO;
         }
+
         Instance currentInstance = this.instance;
         if (currentInstance != null) {
             removeFromInstance(currentInstance);
