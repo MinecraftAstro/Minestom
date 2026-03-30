@@ -3,6 +3,7 @@ package net.minestom.server.collision;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
+import net.minestom.server.coordinate.mutable.MutableVec;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.Instance;
@@ -18,6 +19,45 @@ import java.util.function.Function;
 
 @ApiStatus.Internal
 public final class CollisionUtils {
+
+    public static boolean canFit(BoundingBox boundingBox,
+                                 Instance instance,
+                                 Point point) {
+        final BoundingBox.PointIterator blockIterator = boundingBox.getBlocks(point);
+        while (blockIterator.hasNext()) {
+            final MutableVec blockPoint = blockIterator.next();
+            final int blockX = blockPoint.blockX();
+            final int blockY = blockPoint.blockY();
+            final int blockZ = blockPoint.blockZ();
+
+            Block block;
+            try {
+                block = instance.getBlock(blockX, blockY, blockZ, Block.Getter.Condition.TYPE);
+            } catch (NullPointerException ignored) {
+                block = null;
+            }
+
+            // block was in an unloaded chunk, no collision possible here
+            if (block == null)
+                continue;
+
+            // for now just ignore scaffolding, it seems to have a dynamic bounding box
+            // or is just parsed incorrectly in MinestomDataGenerator
+            if (block.id() == Block.SCAFFOLDING.id())
+                continue;
+
+            boolean hit = block.registry().collisionShape().intersectBox(
+                    point.sub(blockX, blockY, blockZ),
+                    boundingBox
+            );
+
+            if (hit) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /**
      * Moves an entity with physics applied (ie checking against blocks)

@@ -135,15 +135,6 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     }
 
     /**
-     * @deprecated use {@link #sectionY()} instead.
-     */
-    @Deprecated
-    @Contract(pure = true)
-    default int section() {
-        return sectionY();
-    }
-
-    /**
      * Creates a point with a modified X coordinate based on its value.
      *
      * @param operator the operator providing the current X coordinate and returning the new

@@ -29,7 +29,7 @@ public final class Node implements Comparable<Node> {
         this.point = point;
         this.depth = depth;
         this.g = 0;
-        this.h = target.manhattanDistance(point);
+        this.h = 0; //point.manhattanDistance(target);
         this.start = start;
         this.target = target;
         this.type = Type.EMPTY;
@@ -143,6 +143,15 @@ public final class Node implements Comparable<Node> {
         result = 31 * result + y;
         result = 31 * result + z;
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Node{" +
+                "g=" + g +
+                ", h=" + h +
+                ", f=" + getF() +
+                '}';
     }
 
     public enum Type {

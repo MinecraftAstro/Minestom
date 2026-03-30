@@ -14,20 +14,17 @@ public final class MobContext {
     private final Point startPoint;
 
     private final double stepHeight;
-    private final double jumpStrength;
     private final double safeFallDistance;
 
     public MobContext(@NotNull Instance instance,
                       @NotNull BoundingBox boundingBox,
                       @NotNull Point startPoint,
                       double stepHeight,
-                      double jumpStrength,
                       double safeFallDistance) {
         this.instance = instance;
         this.boundingBox = boundingBox;
         this.startPoint = startPoint;
         this.stepHeight = stepHeight;
-        this.jumpStrength = jumpStrength;
         this.safeFallDistance = safeFallDistance;
     }
 
@@ -48,10 +45,6 @@ public final class MobContext {
 
     public double stepHeight() {
         return stepHeight;
-    }
-
-    public double jumpStrength() {
-        return jumpStrength;
     }
 
     public double safeFallDistance() {

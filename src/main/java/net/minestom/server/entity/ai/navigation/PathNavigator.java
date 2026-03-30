@@ -118,7 +118,6 @@ public abstract class PathNavigator {
                         entityMob.getBoundingBox(),
                         position,
                         entityMob.getAttributeValue(Attribute.STEP_HEIGHT),
-                        entityMob.getAttributeValue(Attribute.JUMP_STRENGTH),
                         entityMob.getAttributeValue(Attribute.SAFE_FALL_DISTANCE)
                 ),
                 completionRange,
@@ -129,6 +128,12 @@ public abstract class PathNavigator {
             if (throwable != null) {
                 LOGGER.warn("Failed to find path for entity {}", entityMob.getUuid(), throwable);
                 return;
+            }
+
+            // don't include a node that is too close to the start
+            // this prevents doubling back to nodes during navigation, which causes issue when the entity starts on a slab, staircase, etc...
+            if (path.positions().getFirst().point().sameBlock(position)) {
+                path.positions().removeFirst();
             }
 
             synchronized (this) {

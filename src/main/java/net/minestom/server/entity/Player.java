@@ -29,6 +29,7 @@ import net.minestom.server.advancements.Notification;
 import net.minestom.server.adventure.AdventurePacketConvertor;
 import net.minestom.server.adventure.audience.Audiences;
 import net.minestom.server.collision.BoundingBox;
+import net.minestom.server.collision.CollisionUtils;
 import net.minestom.server.command.CommandSender;
 import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.*;
@@ -519,6 +520,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
                         entity.updateNewViewer(this);
                     }
                 });
+
         teleport(respawnPosition).thenRun(this::refreshAfterTeleport);
     }
 
@@ -870,33 +872,10 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
      * @param pose The pose to check
      */
     private boolean canFitWithBoundingBox(EntityPose pose) {
-        BoundingBox bb = pose == EntityPose.STANDING ? boundingBox : BoundingBox.fromPose(pose);
-        if (bb == null) return false;
+        final BoundingBox poseBoundingBox = pose == EntityPose.STANDING ? boundingBox : BoundingBox.fromPose(pose);
+        if (poseBoundingBox == null) return false;
 
-        var position = getPosition();
-        var iter = bb.getBlocks(getPosition());
-        while (iter.hasNext()) {
-            var pos = iter.next();
-            Block block;
-            try {
-                block = instance.getBlock(pos.blockX(), pos.blockY(), pos.blockZ(), Block.Getter.Condition.TYPE);
-            } catch (NullPointerException ignored) {
-                block = null;
-            }
-
-            // Block was in unloaded chunk, no bounding box.
-            if (block == null) continue;
-
-            // For now just ignore scaffolding. It seems to have a dynamic bounding box, or is just parsed
-            // incorrectly in MinestomDataGenerator.
-            if (block.id() == Block.SCAFFOLDING.id()) continue;
-
-            var hit = block.registry().collisionShape()
-                    .intersectBox(position.sub(pos.blockX(), pos.blockY(), pos.blockZ()), bb);
-            if (hit) return false;
-        }
-
-        return true;
+        return CollisionUtils.canFit(poseBoundingBox, instance, getPosition());
     }
 
     @Override

@@ -22,9 +22,6 @@ import org.jetbrains.annotations.Nullable;
 // mobs with bounding boxes that don't fit within a block will still have improved performance, but they will require more computationally expensive checks
 public final class FastGroundNodeEvaluator implements NodeEvaluator {
 
-    // TODO: fix issue when the mob starts in something like a stair-case where it doesnt move
-    // it seems to want to have a node within the stair-case, which causes the entity to not move
-
     // TODO: auto-load chunks
     // TODO: support water movement (just floating for now)
     // TODO: support larger hitboxes
@@ -33,7 +30,6 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
     private static final float MAXIMUM_STEP_HEIGHT = 0.6f;
     private static final float MAXIMUM_JUMP_HEIGHT = 1.25f;
 
-    // TODO: fix closed doors
     // TODO: fix the issue where the first iteration results in updated nodes?
     // TODO: make stairs step and not jump type
     // TODO: cant pathfind in caves?
@@ -49,7 +45,7 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
 
         // check if the mob has clearance to spawn at the starting point
         // this will typically fail if the mob is stuck in a block
-        if (!canStand(mobContext, startPoint)) {
+        if (!canFit(mobContext, startPoint)) {
             return null;
         }
 
@@ -108,16 +104,23 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         // check if the move is diagonal, if it is then we'll need to make sure that both of its neighbors are clear
         final Point direction = evaluationContext.newPoint().sub(evaluationContext.oldPoint());
         if (isDiagonalMove(direction)) {
-            if (!canStand(mobContext, evaluationContext.oldPoint().add(direction.blockX(), 0, 0))
-                    || !canStand(mobContext, evaluationContext.oldPoint().add(0, 0, direction.blockZ()))) {
-                // TODO: test if we can jump diagonally instead of failing?
+            if (!canFit(mobContext, evaluationContext.oldPoint().add(direction.blockX(), 0, 0))
+                    || !canFit(mobContext, evaluationContext.oldPoint().add(0, 0, direction.blockZ()))) {
                 return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
             }
         }
 
-        // check if they have the clearance needed to actually fit in this position without any obstructions
-        if (!canStand(mobContext, evaluationContext.newPoint())) {
-            // since they can't fit at the new spot, we'll check to see if they can step or jump to get in a position where they will fit
+        // check if they can actually stand at the new point without any obstructions
+        // this won't catch all types of obstructions (such as closed doors, open trap-doors, etc) since the bounding box can technically fit in the center of block still
+        if (!canFit(mobContext, evaluationContext.newPoint())) {
+            // since they can't fit at the new point, we'll check to see if they can step or jump to get in a position where they will fit
+            return checkUpwardsMove(evaluationContext);
+        }
+
+        // check if the new point has an open door, trap-door, or any other block that might not get caught from the above check
+        final Shape newBlockShape = evaluationContext.newBlockShape();
+        if (newBlockShape.relativeStart() != Vec.ZERO
+                && newBlockShape.relativeEnd() != Vec.ZERO) {
             return checkUpwardsMove(evaluationContext);
         }
 
@@ -135,7 +138,7 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         }
 
         // since we know they can move to this spot, check whether this move results in a fall
-        return checkFallMoveForLargeBoundingBox(evaluationContext);
+        return checkFallMoveForLargeBoundingBoxNew(evaluationContext);
     }
 
     @NotNull
@@ -216,40 +219,44 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
     }
 
     @NotNull
-    private NodeEvaluationResult checkFallMoveForLargeBoundingBox(@NotNull EvaluationContext evaluationContext) {
-        // check if the blocks up to the max safe fall distance are air
-        // we'll have to approach this a bit differently for larger bounding boxes
-        // this will be a bit more computationally expensive...
-        final BoundingBox boundingBox = evaluationContext.boundingBox();
-
+    private NodeEvaluationResult checkFallMoveForLargeBoundingBoxNew(@NotNull EvaluationContext evaluationContext) {
         final Point oldPoint = evaluationContext.oldPoint();
         final Point newPoint = evaluationContext.newPoint();
+        final Point direction = newPoint.sub(oldPoint).asVec().normalize();
 
-        // TODO: depending on the scale of the mob, I might need to loop around the old or new point and check if it supports the mob standing here?
-        // TODO: only having 2 points next to each other wont work for very large mobs
+        final BoundingBox boundingBox = evaluationContext.boundingBox();
+        final int depth = (int) Math.max(Math.ceil(boundingBox.depth()), 1);
+        final int width = (int) Math.max(Math.ceil(boundingBox.width()), 1);
 
-        double landingY = Double.MAX_VALUE;
-        for (int y = evaluationContext.newPoint().blockY(); y >= evaluationContext.belowNewPoint().blockY() - evaluationContext.mobContext().safeFallDistance(); y--) {
-            if (!canStand(evaluationContext.mobContext(), evaluationContext.newPoint().withY(y))) {
-                // if the entity can't stand here, then it can't fall here...
-                return new NodeEvaluationResult(NodeEvaluationResult.Status.VALID_MOVE);
+//        System.out.println("Depth: " + depth);
+//        System.out.println("Width: " + width);
+//        System.out.println("Direction: " + direction);
+//        System.out.println();
+
+
+        final BoundingBox.PointIterator blockIterator = boundingBox.withOffset(new Vec(0, -1, 0)).getBlocks(newPoint);
+        boolean allAir = true;
+        while (blockIterator.hasNext()) {
+            final MutableVec blockPoint = blockIterator.next();
+            final Block block = evaluationContext.instance().getBlock(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ(), Block.Getter.Condition.TYPE);
+            if (block != null && !block.isAir()) {
+                allAir = false;
+                break;
             }
-//            final BoundingBox.PointIterator blockIterator = boundingBox.getBlocks(evaluationContext.newPoint().withY(y));
-//            while (blockIterator.hasNext()) {
-//                final MutableVec blockPoint = blockIterator.next();
-//                final Block block = evaluationContext.instance().getBlock(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ(), Block.Getter.Condition.TYPE);
-//                if (block != null && !block.isAir()) {
-//
-//                }
-//            }
         }
 
-        return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
+        if (allAir) {
+            return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
+        }
+
+        return new NodeEvaluationResult(NodeEvaluationResult.Status.VALID_MOVE);
     }
 
     @NotNull
     private NodeEvaluationResult checkUpwardsMove(@NotNull EvaluationContext evaluationContext) {
         final Shape oldBlockShape = evaluationContext.oldBlockShape();
+
+        // TODO: support step height for iron golems / camels
 
         // gets the 2 blocks in front of the entity
         // since the jump height is 1.25, we need to be able to see if it's a block with a slab or a block with powdered snow, etc...
@@ -257,14 +264,14 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         final Shape aboveNewBlockShape = evaluationContext.instance().getBlock(evaluationContext.newPoint().add(0, 1, 0)).registry().collisionShape();
 
         final double totalBlockHeight = (newBlockShape.relativeEnd().y() + aboveNewBlockShape.relativeEnd().y()) - oldBlockShape.relativeEnd().y();
-        System.out.println("Total Block Height: " + totalBlockHeight);
+        //System.out.println("Total Block Height: " + totalBlockHeight);
 
         if (totalBlockHeight > 0.0D && totalBlockHeight <= MAXIMUM_JUMP_HEIGHT) {
-            System.out.println("Can step/jump");
+            //System.out.println("Can step/jump");
 
             // check the clearance at the old point and the new point with the modified Y value from the step/jump
-            if (!canStand(evaluationContext.mobContext(), evaluationContext.oldPoint().add(0, totalBlockHeight, 0))
-                    || !canStand(evaluationContext.mobContext(), evaluationContext.newPoint().add(0, totalBlockHeight, 0))) {
+            if (!canFit(evaluationContext.mobContext(), evaluationContext.oldPoint().add(0, totalBlockHeight, 0))
+                    || !canFit(evaluationContext.mobContext(), evaluationContext.newPoint().add(0, totalBlockHeight, 0))) {
                 return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
             }
 
@@ -282,27 +289,13 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
     }
 
-    private boolean canStand(@NotNull MobContext mobContext,
-                             @NotNull Point point) {
-        final BoundingBox boundingBox = mobContext.boundingBox();
-        final BoundingBox.PointIterator blockIterator = boundingBox.getBlocks(point);
-        while (blockIterator.hasNext()) {
-            final MutableVec blockPoint = blockIterator.next();
-            final Block block = mobContext.instance().getBlock(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ(), Block.Getter.Condition.TYPE);
-
-            if (block == null) continue;
-            if (block.id() == Block.SCAFFOLDING.id()) continue;
-
-            final boolean hit = block.registry().collisionShape().intersectBox(
-                    point.sub(blockPoint.blockX(), blockPoint.blockY(), blockPoint.blockZ()),
-                    boundingBox
-            );
-            if (hit) {
-                return false;
-            }
-        }
-
-        return true;
+    private boolean canFit(@NotNull MobContext mobContext,
+                           @NotNull Point point) {
+        return CollisionUtils.canFit(
+                mobContext.boundingBox(),
+                mobContext.instance(),
+                point
+        );
     }
 
     private boolean hasBlockCollision(@NotNull EvaluationContext evaluationContext) {

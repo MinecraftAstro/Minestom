@@ -72,7 +72,7 @@ public final class Pathfinder {
         }
 
         // make a minimum heap priority queue and sort by the lowest F value
-        final BinaryMinimumHeap openSet = new BinaryMinimumHeap(2048); // TODO: teest for optimal initial capacity
+        final BinaryMinimumHeap openSet = new BinaryMinimumHeap(2048); // TODO: test for optimal initial capacity
         final Long2ObjectMap<SpatialData> visitedRegions = new Long2ObjectOpenHashMap<>();
         final Long2ObjectMap<Node> openSetNodes = new Long2ObjectOpenHashMap<>();
 
@@ -93,9 +93,11 @@ public final class Pathfinder {
             // check if the pathfinding request was canceled
             if (cancelFlag.get()) {
                 if (options.isBestEffortOnCancel()) {
+                    System.out.println("best effort on cancel");
                     return reconstructPath(start, target, bestFallbackNode, true);
                 }
 
+                System.out.println("canceled");
                 return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
             }
 
@@ -110,6 +112,8 @@ public final class Pathfinder {
 
             // check if the path has reached the max length
             if (hasMaxLength && currentNode.depth() >= options.getMaxLength()) {
+                System.out.println("max length exceeded");
+                System.out.println(currentNode.depth());
                 return reconstructPath(start, target, bestFallbackNode, true);
             }
 
@@ -124,9 +128,12 @@ public final class Pathfinder {
 
         // check if we should resort to the best effort path if we couldn't find a path
         if (options.isBestEffortOnFailure()) {
+            System.out.println("best effort on failure");
+            System.out.println("iterations: " + iteration);
             return reconstructPath(start, target, bestFallbackNode, true);
         }
 
+        System.out.println("failed x2");
         return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
     }
 
@@ -144,9 +151,13 @@ public final class Pathfinder {
         final List<PathPoint> pathPoints = new ArrayList<>();
         Node currentNode = endNode;
         while (currentNode != null) {
+            System.out.println(currentNode);
+            System.out.println();
             pathPoints.add(new PathPoint(currentNode.point(), currentNode.getType()));
             currentNode = currentNode.getParentNode();
         }
+
+        System.out.println(currentNode);
 
         Collections.reverse(pathPoints);
         return new Path(bestEffort ? Path.State.BEST_EFFORT : Path.State.FOUND, pathPoints, start, target);
@@ -268,7 +279,7 @@ public final class Pathfinder {
         }
 
         // check if it's a valid move
-        final NodeEvaluationResult evaluationResult = options.nodeEvaluator().isValidMove(existingNode, currentNode, mobContext, options);
+        final NodeEvaluationResult evaluationResult = options.nodeEvaluator().isValidMove(currentNode, existingNode, mobContext, options);
         if (evaluationResult.status() == NodeEvaluationResult.Status.INVALID_MOVE) {
             return;
         }

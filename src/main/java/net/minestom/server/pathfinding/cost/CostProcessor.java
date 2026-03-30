@@ -63,9 +63,9 @@ public final class CostProcessor {
         private final Object2DoubleMap<Block> groundBlockCosts;
 
         public Builder() {
-            this.walkCost = 0.0D;
-            this.fallCost = 0.0D;
-            this.stepCost = 0.5D;
+            this.walkCost = 1.0D;
+            this.fallCost = 1.0D;
+            this.stepCost = 1.5D;
             this.jumpCost = 2.0D;
             this.groundBlockCosts = new Object2DoubleOpenHashMap<>();
         }
