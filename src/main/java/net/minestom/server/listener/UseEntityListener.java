@@ -18,7 +18,7 @@ public class UseEntityListener {
 
     public static void useEntityListener(ClientInteractEntityPacket packet, Player player) {
         final Entity entity = player.getInstance().getEntityById(packet.targetId());
-        if (entity == null || !entity.isViewer(player))
+        if (entity == null || !entity.hasViewer(player))
             return;
 
         if (ServerFlag.ENFORCE_INTERACTION_LIMIT) {

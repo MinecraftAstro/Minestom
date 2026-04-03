@@ -30,6 +30,7 @@ import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.component.AttributeList;
 import net.minestom.server.network.ConnectionState;
 import net.minestom.server.network.packet.server.LazyPacket;
+import net.minestom.server.network.packet.server.SendablePacket;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.play.*;
 import net.minestom.server.network.player.PlayerConnection;
@@ -64,6 +65,7 @@ public class LivingEntity extends Entity implements EquipmentHandler {
 
     protected boolean isDead;
 
+    @Nullable
     protected Damage lastDamage;
 
     // Bounding box used for items' pickup (see LivingEntity#setBoundingBox)
@@ -205,7 +207,7 @@ public class LivingEntity extends Entity implements EquipmentHandler {
             itemPickupCooldown.refreshLastUpdate(time);
             this.instance.getEntityTracker().nearbyEntities(position, expandedBoundingBox.width(),
                     EntityTracker.Target.ITEMS, itemEntity -> {
-                        if (this instanceof Player player && !itemEntity.isViewer(player)) return;
+                        if (this instanceof Player player && !itemEntity.hasViewer(player)) return;
                         if (!itemEntity.isPickable()) return;
                         if (!expandedBoundingBox.intersectEntity(position, itemEntity)) return;
                         final PickupItemEvent pickupItemEvent = new PickupItemEvent(this, itemEntity);
@@ -537,13 +539,24 @@ public class LivingEntity extends Entity implements EquipmentHandler {
         return this.entityType.registry().shouldSendAttributes();
     }
 
+//    @Override
+//    public void updateNewViewer(Player player) {
+//        super.updateNewViewer(player);
+//        player.sendPacket(new LazyPacket(this::getEquipmentsPacket));
+//
+//        if (shouldSendAttributes())
+//            player.sendPacket(new LazyPacket(this::getPropertiesPacket));
+//    }
+
     @Override
-    public void updateNewViewer(Player player) {
-        super.updateNewViewer(player);
-        player.sendPacket(new LazyPacket(this::getEquipmentsPacket));
+    public List<SendablePacket> getNewViewerPackets(Player player) {
+        final List<SendablePacket> packets = super.getNewViewerPackets(player);
+        packets.add(new LazyPacket(this::getEquipmentsPacket));
 
         if (shouldSendAttributes())
-            player.sendPacket(new LazyPacket(this::getPropertiesPacket));
+            packets.add(new LazyPacket(this::getPropertiesPacket));
+
+        return packets;
     }
 
     @Override

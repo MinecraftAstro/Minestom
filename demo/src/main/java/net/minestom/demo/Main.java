@@ -1,5 +1,7 @@
 package net.minestom.demo;
 
+import net.kyori.adventure.Adventure;
+import net.kyori.adventure.internal.properties.AdventureProperties;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minestom.demo.commands.*;
@@ -9,6 +11,7 @@ import net.minestom.server.command.CommandManager;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.EntityType;
+import net.minestom.server.entity.MetadataDef;
 import net.minestom.server.entity.Player;
 import net.minestom.server.entity.damage.Damage;
 import net.minestom.server.event.GlobalEventHandler;
@@ -18,6 +21,8 @@ import net.minestom.server.event.player.*;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.LightingChunk;
 import net.minestom.server.instance.block.Block;
+import net.minestom.server.timer.TaskSchedule;
+import net.minestom.server.utils.StringUtils;
 import net.minestom.server.utils.time.TimeUnit;
 
 public class Main {
@@ -33,8 +38,6 @@ public class Main {
         container.setGenerator(unit -> unit.modifier().fillHeight(0, 40, Block.STONE));
         container.setChunkSupplier(LightingChunk::new);
 
-
-
         GlobalEventHandler node = MinecraftServer.getGlobalEventHandler();
         node.addListener(AsyncPlayerConfigurationEvent.class, event -> {
             event.setSpawningInstance(container);
@@ -42,13 +45,57 @@ public class Main {
         });
 
         node.addListener(PlayerStartSneakingEvent.class, event -> {
-            Entity entity = new Entity(EntityType.AREA_EFFECT_CLOUD);
-            entity.setInstance(container, event.getPlayer().getPosition());
-            entity.setAutoViewable(false);
+            final Player player = event.getPlayer();
+            final Pos playerPos = player.getPosition();
 
-            MinecraftServer.getConnectionManager().getOnlinePlayers().forEach(entity::addViewer);
+            final Entity entity = new Entity(EntityType.ZOMBIE);
+            final Entity passenger = new Entity(EntityType.SKELETON);
+            final Entity secondPassenger = new Entity(EntityType.PIG);
 
-            entity.scheduleRemove(5, TimeUnit.SECOND);
+            final Entity passengerPassenger = new Entity(EntityType.BLAZE);
+            final Entity secondPassengerPassenger = new Entity(EntityType.ZOMBIFIED_PIGLIN);
+            final Entity thirdPassengerPassenger = new Entity(EntityType.COW);
+
+            final Entity passengerPassengerPassenger = new Entity(EntityType.SHEEP);
+
+            // zombie should have: skeleton and pig passenger
+            // skeleton should have: blaze and zombified piglin passenger
+            // pig should have: cow passenger
+            // blaze should have: sheep passenger
+
+            // TODO: intended behavior
+            // pig and cow should hide
+            // pig and cow should appear
+            // pig and cow should hide again
+            // pig and cow should appear
+
+            entity.setInstance(container, playerPos);
+            entity.addPassenger(passenger);
+            entity.addPassenger(secondPassenger);
+
+            passenger.addPassenger(passengerPassenger);
+            passenger.addPassenger(secondPassengerPassenger);
+            secondPassenger.addPassenger(thirdPassengerPassenger);
+
+            passengerPassenger.addPassenger(passengerPassengerPassenger);
+
+            System.out.println("Entity Count: " + event.getInstance().getEntities().size());
+
+            MinecraftServer.getSchedulerManager().buildTask(() -> {
+                secondPassenger.setAutoViewable(false);
+            }).delay(TaskSchedule.seconds(3L)).schedule();
+
+            MinecraftServer.getSchedulerManager().buildTask(() -> {
+                secondPassenger.addViewer(player);
+            }).delay(TaskSchedule.seconds(6L)).schedule();
+
+            MinecraftServer.getSchedulerManager().buildTask(() -> {
+                secondPassenger.removeViewer(player);
+            }).delay(TaskSchedule.seconds(9L)).schedule();
+
+            MinecraftServer.getSchedulerManager().buildTask(() -> {
+                secondPassenger.setAutoViewable(true);
+            }).delay(TaskSchedule.seconds(12L)).schedule();
         });
 //
 //        node.addListener(PlayerStartSneakingEvent.class, event -> {
@@ -63,27 +110,27 @@ public class Main {
 //            });
 //        });
 //
-//        node.addListener(PlayerSwapItemEvent.class, event -> {
-//            event.getPlayer().setRespawnPoint(new Pos(0, 41, 0));
-//            event.getPlayer().kill();
-//            event.getPlayer().respawn();
-//        });
-//
-//        node.addListener(EntityAttackEvent.class, event -> {
-//            final Entity source = event.getEntity();
-//            final Entity entity = event.getTarget();
-//
-//            entity.takeKnockback(0.4f, Math.sin(source.getPosition().yaw() * 0.017453292), -Math.cos(source.getPosition().yaw() * 0.017453292));
-//
-//            if (entity instanceof Player) {
-//                Player target = (Player) entity;
-//                target.damage(Damage.fromEntity(source, 5));
-//            }
-//
-//            if (source instanceof Player) {
-//                ((Player) source).sendMessage("You attacked something!");
-//            }
-//        });
+        node.addListener(PlayerSwapItemEvent.class, event -> {
+            event.getPlayer().setRespawnPoint(new Pos(0, 41, 0));
+            event.getPlayer().kill();
+            event.getPlayer().respawn();
+        });
+
+        node.addListener(EntityAttackEvent.class, event -> {
+            final Entity source = event.getEntity();
+            final Entity entity = event.getTarget();
+
+            entity.takeKnockback(0.4f, Math.sin(source.getPosition().yaw() * 0.017453292), -Math.cos(source.getPosition().yaw() * 0.017453292));
+
+            if (entity instanceof Player) {
+                Player target = (Player) entity;
+                target.damage(Damage.fromEntity(source, 5));
+            }
+
+            if (source instanceof Player) {
+                ((Player) source).sendMessage("You attacked something!");
+            }
+        });
 //
 //        node.addListener(EntityDespawnEvent.class, event -> {
 //            if (!event.getEntity().equals(zombie)) return;

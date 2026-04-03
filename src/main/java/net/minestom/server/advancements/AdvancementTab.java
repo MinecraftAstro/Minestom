@@ -121,9 +121,10 @@ public class AdvancementTab implements Viewable {
 
     @Override
     public synchronized boolean removeViewer(Player player) {
-        if (!isViewer(player)) {
+        if (!hasViewer(player)) {
             return false;
         }
+
         // Remove the tab
         if (!player.isRemoved()) player.sendPacket(removePacket);
         removePlayer(player);

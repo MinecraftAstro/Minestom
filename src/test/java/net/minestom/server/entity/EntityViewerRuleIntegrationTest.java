@@ -237,8 +237,8 @@ public class EntityViewerRuleIntegrationTest {
         vehicle.addViewer(testPlayer);
 
         spawnTracker2.assertCount(1);
-        assertTrue(vehicle.isViewer(testPlayer));
-        assertFalse(passenger.isViewer(testPlayer));
+        assertTrue(vehicle.hasViewer(testPlayer));
+        assertFalse(passenger.hasViewer(testPlayer));
     }
 
     @Test
@@ -263,7 +263,7 @@ public class EntityViewerRuleIntegrationTest {
 
         spawnTracker2.assertCount(1);
         assertEquals(vehicle.getEntityId(), spawnTracker2.collect().getFirst().entityId());
-        assertTrue(vehicle.isViewer(testPlayer));
-        assertFalse(passenger.isViewer(testPlayer));
+        assertTrue(vehicle.hasViewer(testPlayer));
+        assertFalse(passenger.hasViewer(testPlayer));
     }
 }

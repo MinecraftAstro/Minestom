@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Represents something which can be displayed or hidden to players.
+ * Represents something which can be displayed or hidden to {@link Player}s.
  */
 public interface Viewable {
 
@@ -45,7 +45,7 @@ public interface Viewable {
      * @param player the player to check
      * @return true if {@code player} is a viewer, false otherwise
      */
-    default boolean isViewer(Player player) {
+    default boolean hasViewer(Player player) {
         return getViewers().contains(player);
     }
 

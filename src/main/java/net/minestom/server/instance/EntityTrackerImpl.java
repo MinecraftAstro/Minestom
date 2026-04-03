@@ -58,6 +58,7 @@ final class EntityTrackerImpl implements EntityTracker {
                 targetEntry.addToChunk(index, entity);
             }
         }
+
         if (update != null) {
             update.referenceUpdate(point, this);
             nearbyEntitiesByChunkRange(point, ServerFlag.ENTITY_VIEW_DISTANCE, target, newEntity -> {

@@ -22,6 +22,7 @@ import java.util.function.Consumer;
  * Implementations are expected to be thread-safe.
  */
 public sealed interface EntityTracker permits EntityTrackerImpl {
+
     static EntityTracker newTracker() {
         return new EntityTrackerImpl();
     }
@@ -60,7 +61,8 @@ public sealed interface EntityTracker permits EntityTrackerImpl {
     <T extends Entity> void move(Entity entity, Point newPoint,
                                  Target<T> target, @Nullable Update<T> update);
 
-    @UnmodifiableView <T extends Entity> Collection<T> chunkEntities(int chunkX, int chunkZ, Target<T> target);
+    @UnmodifiableView
+    <T extends Entity> Collection<T> chunkEntities(int chunkX, int chunkZ, Target<T> target);
 
     @UnmodifiableView
     default <T extends Entity> Collection<T> chunkEntities(Point point, Target<T> target) {
@@ -103,6 +105,7 @@ public sealed interface EntityTracker permits EntityTrackerImpl {
      */
     @ApiStatus.NonExtendable
     interface Target<E extends Entity> {
+
         Target<Entity> ENTITIES = create(Entity.class);
         Target<Player> PLAYERS = create(Player.class);
         Target<ItemEntity> ITEMS = create(ItemEntity.class);
@@ -134,6 +137,7 @@ public sealed interface EntityTracker permits EntityTrackerImpl {
      * Callback to know the newly visible entities and those to remove.
      */
     interface Update<E extends Entity> {
+
         void add(E entity);
 
         void remove(E entity);

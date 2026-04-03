@@ -11,10 +11,12 @@ import org.jetbrains.annotations.Nullable;
 public class PlayerDeathEvent implements PlayerInstanceEvent {
 
     private final Player player;
+    @Nullable
     private Component deathText;
+    @Nullable
     private Component chatMessage;
 
-    public PlayerDeathEvent(Player player, Component deathText, Component chatMessage) {
+    public PlayerDeathEvent(Player player, @Nullable Component deathText, @Nullable Component chatMessage) {
         this.player = player;
         this.deathText = deathText;
         this.chatMessage = chatMessage;

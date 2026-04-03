@@ -1,5 +1,6 @@
-package net.minestom.server.entity;
+package net.minestom.server.entity.player;
 
+import net.minestom.server.entity.PlayerSkin;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 

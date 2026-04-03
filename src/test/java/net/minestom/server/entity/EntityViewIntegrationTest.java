@@ -146,9 +146,9 @@ public class EntityViewIntegrationTest {
         {
             assertEquals(0, player.getViewers().size());
             assertEquals(1, vehicle.getViewers().size());
-            assertTrue(vehicle.isViewer(player));
+            assertTrue(vehicle.hasViewer(player));
             assertEquals(1, passenger.getViewers().size());
-            assertTrue(passenger.isViewer(player));
+            assertTrue(passenger.hasViewer(player));
         }
     }
 
@@ -170,9 +170,9 @@ public class EntityViewIntegrationTest {
         assertEquals(2, spawns.size());
 
         assertEquals(1, vehicle.getViewers().size());
-        assertTrue(vehicle.isViewer(player));
+        assertTrue(vehicle.hasViewer(player));
         assertEquals(1, passenger.getViewers().size());
-        assertTrue(passenger.isViewer(player));
+        assertTrue(passenger.hasViewer(player));
     }
 
     @Test

@@ -439,26 +439,14 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
     @Override
     public void kill() {
         if (!isDead()) {
+            // default death screen text and death message
+            Component deathText = Component.text("Killed by poor programming.");
+            Component chatMessage = Component.text(getUsername() + " was killed by poor programming.");
 
-            Component deathText;
-            Component chatMessage;
-
-            // get death screen text to the killed player
-            {
-                if (lastDamage != null) {
-                    deathText = lastDamage.buildDeathScreenText(this);
-                } else { // may happen if killed by the server without applying damage
-                    deathText = Component.text("Killed by poor programming.");
-                }
-            }
-
-            // get death message to chat
-            {
-                if (lastDamage != null) {
-                    chatMessage = lastDamage.buildDeathMessage(this);
-                } else { // may happen if killed by the server without applying damage
-                    chatMessage = Component.text(getUsername() + " was killed by poor programming.");
-                }
+            // build the death screen text and death message for the killed player
+            if (lastDamage != null) {
+                deathText = lastDamage.buildDeathScreenText(this);
+                chatMessage = lastDamage.buildDeathMessage(this);
             }
 
             // Call player death event
@@ -482,6 +470,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
             if (getInstance() != null)
                 setDeathLocation(getInstance().getDimensionName(), getPosition());
         }
+
         super.kill();
     }
 
@@ -515,9 +504,10 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
         // Client also needs all entities resent to them, since those are unloaded as well
         this.instance.getEntityTracker().nearbyEntitiesByChunkRange(respawnPosition, this.effectiveViewDistance(),
                 EntityTracker.Target.ENTITIES, entity -> {
-                    // Skip refreshing self with a new viewer
-                    if (!entity.getUuid().equals(getUuid()) && entity.isViewer(this)) {
-                        entity.updateNewViewer(this);
+                    // skip refreshing self and make sure to only send data for entities that this player can view
+                    if (!entity.getUuid().equals(getUuid()) && entity.hasViewer(this)) {
+                        entity.viewEngine.showTo(this);
+                        // entity.updateNewViewer(this);
                     }
                 });
 
@@ -2376,6 +2366,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
 
     /**
      * Gets the client's 'effective' view distance, which is the minimum of the client's view distance settings, and the local instance settings, plus one
+     *
      * @return The effective chunk view distance range of the client
      */
     public int effectiveViewDistance() {

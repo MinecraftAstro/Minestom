@@ -8,6 +8,7 @@ import net.minestom.server.component.DataComponents;
 import net.minestom.server.entity.EntityType;
 import net.minestom.server.instance.block.jukebox.JukeboxSong;
 import net.minestom.server.item.component.EnchantmentList;
+import net.minestom.server.item.component.TypedCustomData;
 import net.minestom.server.item.enchant.Enchantment;
 import net.minestom.testing.Env;
 import net.minestom.testing.EnvTest;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @EnvTest
 public class ItemTest {
+
     @Test
     public void testFields(Env env) {
         var item = ItemStack.of(Material.DIAMOND_SWORD);
@@ -157,11 +159,18 @@ public class ItemTest {
 
     @Test
     public void testEntityType() {
-        var item1 = ItemStack.of(Material.DIAMOND, 1);
-        assertNull(item1.material().registry().spawnEntityType());
-        var item2 = ItemStack.of(Material.CAMEL_SPAWN_EGG, 1);
-        assertNotNull(item2.material().registry().spawnEntityType());
-        assertEquals(EntityType.CAMEL, item2.material().registry().spawnEntityType());
+        {
+            var item1 = ItemStack.of(Material.DIAMOND, 1);
+            final TypedCustomData<EntityType> entityData = item1.get(DataComponents.ENTITY_DATA);
+            assertNull(entityData);
+        }
+
+        {
+            var item2 = ItemStack.of(Material.CAMEL_SPAWN_EGG, 1);
+            final TypedCustomData<EntityType> entityData = item2.get(DataComponents.ENTITY_DATA);
+            assertNotNull(entityData);
+            assertEquals(EntityType.CAMEL, entityData.type());
+        }
     }
 
     @Test

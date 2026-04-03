@@ -2,6 +2,8 @@ package net.minestom.server.entity.damage;
 
 import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
+import net.minestom.server.component.DataComponent;
+import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.LivingEntity;
@@ -12,6 +14,7 @@ import net.minestom.server.registry.RegistryKey;
 import net.minestom.server.sound.SoundEvent;
 import net.minestom.server.tag.TagHandler;
 import net.minestom.server.tag.Taggable;
+import net.minestom.server.utils.StringUtils;
 import net.minestom.server.utils.validate.Check;
 import org.jetbrains.annotations.Nullable;
 
@@ -109,10 +112,19 @@ public class Damage implements Taggable {
      * Used in {@link Player#kill()} to broadcast the proper message.
      *
      * @param killed the player who has been killed
-     * @return the death message, null to do not send anything
+     * @return the death message, null to not send anything
      */
     public @Nullable Component buildDeathMessage(Player killed) {
-        return Component.translatable("death.attack." + type.messageId(), Component.text(killed.getUsername()));
+        final Component customName = attacker.get(DataComponents.CUSTOM_NAME);
+        if (attacker instanceof Player attackerPlayer) {
+            return Component.translatable("death.attack." + type.messageId(),
+                    Component.text(killed.getUsername()), customName == null ? Component.text(attackerPlayer.getUsername()) : customName
+            );
+        } else {
+            return Component.translatable("death.attack." + type.messageId(),
+                    Component.text(killed.getUsername()), customName == null ? Component.text(StringUtils.formatAdventureKeyValue(attacker.getEntityType().key().value())) : customName
+            );
+        }
     }
 
     /**
@@ -157,10 +169,19 @@ public class Damage implements Taggable {
      * Builds the text sent to a player in his death screen.
      *
      * @param killed the player who has been killed
-     * @return the death screen text, null to do not send anything
+     * @return the death screen text, null to not send anything
      */
     public @Nullable Component buildDeathScreenText(Player killed) {
-        return Component.translatable("death.attack." + type.messageId());
+        final Component customName = attacker.get(DataComponents.CUSTOM_NAME);
+        if (attacker instanceof Player attackerPlayer) {
+            return Component.translatable("death.attack." + type.messageId(),
+                    Component.text(killed.getUsername()), customName == null ? Component.text(attackerPlayer.getUsername()) : customName
+            );
+        } else {
+            return Component.translatable("death.attack." + type.messageId(),
+                    Component.text(killed.getUsername()), customName == null ? Component.text(StringUtils.formatAdventureKeyValue(attacker.getEntityType().key().value())) : customName
+            );
+        }
     }
 
     /**

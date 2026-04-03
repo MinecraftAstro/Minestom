@@ -2,15 +2,18 @@ package net.minestom.server.utils;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Locale;
+
 public class StringUtils {
 
     public static final String SPACE = " ";
     public static final char SPACE_CHAR = ' ';
 
     public static int countMatches(final CharSequence str, final char ch) {
-        if (str.length() == 0) {
+        if (str.isEmpty()) {
             return 0;
         }
+
         int count = 0;
         // We could also call str.toCharArray() for faster look ups but that would generate more garbage.
         for (int i = 0; i < str.length(); i++) {
@@ -59,7 +62,7 @@ public class StringUtils {
                 matches++;
                 continue;
             }
-            // check fro transposed matches
+            // check for transposed matches
             for (int j = Math.max(i - maxMatchDistance, 0); j < Math.min(i + maxMatchDistance, longer.length()); j++) {
                 if (i == j) {
                     // case already covered
@@ -143,5 +146,32 @@ public class StringUtils {
             sb.append(ch);
         }
         return sb.toString();
+    }
+
+    /**
+     * Removes the underscore character(s) and capitilizes the start of each word (useful for {@link net.kyori.adventure.key.Key} values).
+     *
+     * @param keyValue the key value
+     * @return a formatted String with no underscores and capitilized words
+     */
+    public static String formatAdventureKeyValue(@Nullable String keyValue) {
+        if (keyValue == null || keyValue.isEmpty())
+            return "";
+
+        keyValue = keyValue.toLowerCase(Locale.ROOT).replace('_', ' ');
+
+        boolean capitalizeNext = true;
+        final char[] buffer = keyValue.toCharArray();
+        for (int i = 0; i < keyValue.length(); i++) {
+            final char character = keyValue.charAt(i);
+            if (Character.isWhitespace(character)) {
+                capitalizeNext = true;
+            } else if (capitalizeNext) {
+                buffer[i] = Character.toTitleCase(character);
+                capitalizeNext = false;
+            }
+        }
+
+        return new String(buffer);
     }
 }

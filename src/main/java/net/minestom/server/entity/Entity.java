@@ -22,7 +22,6 @@ import net.minestom.server.entity.metadata.EntityMeta;
 import net.minestom.server.entity.metadata.LivingEntityMeta;
 import net.minestom.server.entity.metadata.ObjectDataProvider;
 import net.minestom.server.entity.metadata.other.ArmorStandMeta;
-import net.minestom.server.entity.old.EntityCreature;
 import net.minestom.server.event.EventDispatcher;
 import net.minestom.server.event.EventFilter;
 import net.minestom.server.event.EventHandler;
@@ -41,6 +40,8 @@ import net.minestom.server.instance.block.BlockHandler;
 import net.minestom.server.item.component.CustomData;
 import net.minestom.server.monitoring.EventsJFR;
 import net.minestom.server.network.packet.server.CachedPacket;
+import net.minestom.server.network.packet.server.SendablePacket;
+import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.play.*;
 import net.minestom.server.potion.Potion;
 import net.minestom.server.potion.PotionEffect;
@@ -85,10 +86,11 @@ import java.util.function.UnaryOperator;
 /**
  * Could be a player, a monster, or an object.
  * <p>
- * To create your own entity you probably want to extend {@link LivingEntity} or {@link EntityCreature} instead.
+ * To create your own entity you probably want to extend {@link LivingEntity} or {@link EntityMob} instead.
  */
 public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, EventHandler<EntityEvent>, Taggable,
         HoverEventSource<ShowEntity>, Sound.Emitter, Shape, AcquirableSource<Entity>, DataComponent.Holder, Pointered, Identified {
+
     // This is somewhat arbitrary, but we don't want to hit the max int ever because it is very easy to
     // overflow while working with a position at the max int (for example, looping over a bounding box)
     static final int MAX_COORDINATE = 2_000_000_000;
@@ -114,6 +116,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             EntityType.BLOCK_DISPLAY);
     private final CachedPacket destroyPacketCache = new CachedPacket(() -> new DestroyEntitiesPacket(getEntityId()));
 
+    @Nullable
     protected Instance instance;
     @Nullable
     protected Chunk currentChunk;
@@ -124,6 +127,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     protected boolean onGround;
 
     protected BoundingBox boundingBox;
+    @Nullable
     private PhysicsResult previousPhysicsResult = null;
 
     @Nullable
@@ -166,7 +170,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     };
 
     protected final EntityView viewEngine = new EntityView(this);
-    protected final Set<Player> viewers = viewEngine.set;
+    protected final Set<Player> viewers = viewEngine.viewerSet;
 
     private final TagHandler tagHandler = TagHandler.newHandler();
     private final Scheduler scheduler = Scheduler.newScheduler();
@@ -313,8 +317,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     public <T> void set(DataComponent<T> component, T value) {
         if (component == DataComponents.CUSTOM_DATA) {
             tagHandler.updateContent(((CustomData) value).nbt());
-        }
-        else EntityMeta.setComponent(getEntityMeta(), component, value);
+        } else EntityMeta.setComponent(getEntityMeta(), component, value);
     }
 
     /**
@@ -516,60 +519,76 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @Override
     public final boolean addViewer(Player player) {
         Check.stateCondition(!isActive(), "Entities must be in an instance before adding viewers");
-
-        if (!viewEngine.manualAdd(player))
-            return false;
-
-        System.out.println("added viewer for entity: " + entityType);
-        updateNewViewer(player);
-        return true;
+        return viewEngine.manualAdd(player);
     }
 
     @Override
     public final boolean removeViewer(Player player) {
-        if (!viewEngine.manualRemove(player))
-            return false;
-
-        updateOldViewer(player);
-        return true;
+        return viewEngine.manualRemove(player);
     }
 
     /**
-     * Called when a new viewer must be shown.
-     * Method can be subject to deadlocking if the target's viewers are also accessed.
+     * Gets the packets needed to spawn this entity depending on the player.
+     * This method should only be used by the {@link EntityView} to correctly handle passengers.
+     * Any external use of this method will likely result in bugs!
      *
-     * @param player the player to send the packets to
+     * @param player the player to get the spawn packets for
+     * @return a list of packets needed to spawn this entity
      */
     @ApiStatus.Internal
-    public void updateNewViewer(Player player) {
-        player.sendPacket(getSpawnPacket());
-        if (hasVelocity()) player.sendPacket(getVelocityPacket());
-        player.sendPacket(this.getMetadataPacket());
+    public List<SendablePacket> getNewViewerPackets(Player player) {
+        final List<SendablePacket> packets = new ArrayList<>();
 
-        // check if this entity is a passenger
-        if (vehicle != null) {
-            vehicle.sendPacketToViewersAndSelf(vehicle.getPassengersPacket());
-        }
+        packets.add(getSpawnPacket());
+        if (hasVelocity())
+            packets.add(getVelocityPacket());
 
-        // check if this entity has any passengers that need to be added
-        if (!passengers.isEmpty()) {
-            sendPacketToViewersAndSelf(getPassengersPacket());
-        }
+        packets.add(this.getMetadataPacket());
 
-        // Leashes
-        if (leashHolder != null && (player.equals(leashHolder) || leashHolder.isViewer(player))) {
-            player.sendPacket(getAttachEntityPacket());
-        }
+        // passengers are handled in the EntityView showTo function
 
-        for (Entity entity : leashedEntities) {
-            if (entity.isViewer(player)) {
-                player.sendPacket(entity.getAttachEntityPacket());
+        if (leashHolder != null && (player.equals(leashHolder) || leashHolder.hasViewer(player)))
+            packets.add(getAttachEntityPacket());
+
+        for (Entity leashedEntity : leashedEntities) {
+            if (leashedEntity.hasViewer(player)) {
+                packets.add(leashedEntity.getAttachEntityPacket());
             }
         }
 
-        // Head position
-        player.sendPacket(new EntityHeadLookPacket(getEntityId(), headRotation));
+        // head position
+        packets.add(new EntityHeadLookPacket(getEntityId(), headRotation));
+
+        return packets;
     }
+
+//    /**
+//     * Called when a new viewer must be shown.
+//     * Method can be subject to deadlocking if the target's viewers are also accessed.
+//     *
+//     * @param player the player to send the packets to
+//     */
+//    @ApiStatus.Internal
+//    public void updateNewViewer(Player player) {
+//        // spawn the entity for the player and send any other related packets (velocity, metadata, passengers, etc)
+//        player.sendPacket(getSpawnPacket());
+//        if (hasVelocity()) player.sendPacket(getVelocityPacket());
+//        player.sendPacket(this.getMetadataPacket());
+//
+//        // Leashes
+//        if (leashHolder != null && (player.equals(leashHolder) || leashHolder.hasViewer(player))) {
+//            player.sendPacket(getAttachEntityPacket());
+//        }
+//
+//        for (Entity entity : leashedEntities) {
+//            if (entity.hasViewer(player)) {
+//                player.sendPacket(entity.getAttachEntityPacket());
+//            }
+//        }
+//
+//        // Head position
+//        player.sendPacket(new EntityHeadLookPacket(getEntityId(), headRotation));
+//    }
 
     /**
      * Called when a viewer must be destroyed.
@@ -577,10 +596,22 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      *
      * @param player the player to send the packets to
      */
+//    @ApiStatus.Internal
+//    public void updateOldViewer(Player player) {
+//        leashedEntities.forEach(entity -> player.sendPacket(new AttachEntityPacket(entity.getEntityId(), -1)));
+//        player.sendPacket(destroyPacketCache);
+//    }
     @ApiStatus.Internal
-    public void updateOldViewer(Player player) {
-        leashedEntities.forEach(entity -> player.sendPacket(new AttachEntityPacket(entity.getEntityId(), -1)));
-        player.sendPacket(destroyPacketCache);
+    public List<SendablePacket> getOldViewerPackets(Player player) {
+        final List<SendablePacket> packets = new ArrayList<>();
+
+        for (Entity leashedEntity : leashedEntities) {
+            packets.add(new AttachEntityPacket(leashedEntity.getEntityId(), -1));
+        }
+
+        packets.add(destroyPacketCache);
+
+        return packets;
     }
 
     @Override
@@ -614,12 +645,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         final RegistryData.EntityEntry registry = entityType.registry();
         this.aerodynamics = aerodynamics.withAirResistance(
                 registry.horizontalAirResistance(),
-                registry.verticalAirResistance());
+                registry.verticalAirResistance()
+        );
 
         updateCollisions();
-        Set<Player> viewers = new HashSet<>(getViewers());
-        getViewers().forEach(this::updateOldViewer);
-        viewers.forEach(this::updateNewViewer);
+
+        // TODO
+//        Set<Player> viewers = new HashSet<>(getViewers());
+//        getViewers().forEach(this::updateOldViewer);
+//        viewers.forEach(this::updateNewViewer);
     }
 
     /**
@@ -1032,6 +1066,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      */
     public double getDistanceSquared(Entity entity) {
         return getPosition().distanceSquared(entity.getPosition());
+    }
+
+    /**
+     * Determines whether the entity has a vehicle.
+     *
+     * @return true if the entity has a vehicle, false if not
+     */
+    public boolean hasVehicle() {
+        return vehicle != null;
     }
 
     /**
@@ -1683,9 +1726,9 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
                 velocity = getVelocityForPacket();
             }
         }
+
         final Pos position = getPosition();
-        return new SpawnEntityPacket(getEntityId(), getUuid(), getEntityType(),
-                position, position.yaw(), data, velocity);
+        return new SpawnEntityPacket(getEntityId(), getUuid(), getEntityType(), position, position.yaw(), data, velocity);
     }
 
     protected EntityVelocityPacket getVelocityPacket() {
