@@ -22,6 +22,7 @@ import net.minestom.server.entity.metadata.EntityMeta;
 import net.minestom.server.entity.metadata.LivingEntityMeta;
 import net.minestom.server.entity.metadata.ObjectDataProvider;
 import net.minestom.server.entity.metadata.other.ArmorStandMeta;
+import net.minestom.server.entity.view.ViewEngine;
 import net.minestom.server.event.EventDispatcher;
 import net.minestom.server.event.EventFilter;
 import net.minestom.server.event.EventHandler;
@@ -41,7 +42,6 @@ import net.minestom.server.item.component.CustomData;
 import net.minestom.server.monitoring.EventsJFR;
 import net.minestom.server.network.packet.server.CachedPacket;
 import net.minestom.server.network.packet.server.SendablePacket;
-import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.play.*;
 import net.minestom.server.potion.Potion;
 import net.minestom.server.potion.PotionEffect;
@@ -145,19 +145,23 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     private final int id;
 
+    protected final ViewEngine viewEngine = new ViewEngine(this);
+
     // players must be aware of all the surrounding entities
-    // general entities should only be aware of surrounding players to update their viewing list
+    // other entities should only be aware of surrounding players to update their viewer list (current viewers)
+    @SuppressWarnings("unchecked")
     private final EntityTracker.Target<Entity> trackingTarget = this instanceof Player ?
             EntityTracker.Target.ENTITIES : EntityTracker.Target.class.cast(EntityTracker.Target.PLAYERS);
+
     protected final EntityTracker.Update<Entity> trackingUpdate = new EntityTracker.Update<>() {
         @Override
         public void add(Entity entity) {
-            viewEngine.handleAutoViewAddition(entity);
+            viewEngine.handleTrackerAddition(entity);
         }
 
         @Override
         public void remove(Entity entity) {
-            viewEngine.handleAutoViewRemoval(entity);
+            viewEngine.handleTrackerRemoval(entity);
         }
 
         @Override
@@ -165,12 +169,10 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             final Instance currentInstance = tracker != null ? instance : null;
             assert currentInstance == null || currentInstance.getEntityTracker() == tracker :
                     "EntityTracker does not match current instance";
-            viewEngine.updateTracker(currentInstance, point);
+
+            viewEngine.handleTrackerUpdate(currentInstance, point);
         }
     };
-
-    protected final EntityView viewEngine = new EntityView(this);
-    protected final Set<Player> viewers = viewEngine.viewerSet;
 
     private final TagHandler tagHandler = TagHandler.newHandler();
     private final Scheduler scheduler = Scheduler.newScheduler();
@@ -228,6 +230,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             // Local nodes require a server process
             this.eventNode = null;
         }
+
         updateCollisions();
     }
 
@@ -461,78 +464,74 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         lookAt(entity.position.withY(entity.position.y() + entity.getEyeHeight()));
     }
 
-    /**
-     * Gets if this entity is automatically sent to surrounding players.
-     * True by default.
-     *
-     * @return true if the entity is automatically viewable for close players, false otherwise
-     */
+    // hides the entity for all players
+    public void hide() {
+        viewEngine.hide();
+    }
+
+    // shows the entity to all players
+    public void show() {
+        viewEngine.show();
+    }
+
     public boolean isAutoViewable() {
-        return viewEngine.viewableOption.isAuto();
+        return viewEngine.getEntityView().isAutoViewable();
     }
 
-    /**
-     * Decides if this entity should be auto-viewable by nearby players.
-     *
-     * @param autoViewable true to add surrounding players, false to remove
-     * @see #isAutoViewable()
-     */
-    public void setAutoViewable(boolean autoViewable) {
-        this.viewEngine.viewableOption.updateAuto(autoViewable);
+    public Predicate<Player> getViewableRule() {
+        return viewEngine.getEntityView().getViewableRule();
     }
 
-    public void updateViewableRule(@Nullable Predicate<Player> predicate) {
-        this.viewEngine.viewableOption.updateRule(predicate);
+    @ApiStatus.Internal
+    public ViewEngine getViewEngine() {
+        return viewEngine;
     }
 
-    public void updateViewableRule() {
-        this.viewEngine.viewableOption.updateRule();
-    }
+    //    public void updateViewableRule(@Nullable Predicate<Player> predicate) {
+//        this.viewEngine.viewableOption.updateRule(predicate);
+//    }
+//
+//    public void updateViewableRule() {
+//        this.viewEngine.viewableOption.updateRule();
+//    }
 
-    /**
-     * Gets if surrounding entities are automatically visible by this.
-     * True by default.
-     *
-     * @return true if surrounding entities are visible by this
-     */
-    public boolean autoViewEntities() {
-        return viewEngine.viewerOption.isAuto();
-    }
+//    public boolean autoViewEntities() {
+//        return viewEngine.viewerOption.isAuto();
+//    }
 
-    /**
-     * Decides if surrounding entities must be visible.
-     *
-     * @param autoViewer true to add view surrounding entities, false to remove
-     */
-    public void setAutoViewEntities(boolean autoViewer) {
-        this.viewEngine.viewerOption.updateAuto(autoViewer);
-    }
+//    public void setAutoViewEntities(boolean autoViewer) {
+//        this.viewEngine.viewerOption.updateAuto(autoViewer);
+//    }
 
-    public void updateViewerRule(@Nullable Predicate<Entity> predicate) {
-        this.viewEngine.viewerOption.updateRule(predicate);
-    }
-
-    public void updateViewerRule() {
-        this.viewEngine.viewerOption.updateRule();
-    }
+//    public void updateViewerRule(@Nullable Predicate<Entity> predicate) {
+//        this.viewEngine.viewerOption.updateRule(predicate);
+//    }
+//
+//    public void updateViewerRule() {
+//        this.viewEngine.viewerOption.updateRule();
+//    }
 
     @Override
     public final boolean addViewer(Player player) {
         Check.stateCondition(!isActive(), "Entities must be in an instance before adding viewers");
-        return viewEngine.manualAdd(player);
+        return false;
+        // TODO
+        //return viewEngine.addManualViewer(player);
     }
 
     @Override
     public final boolean removeViewer(Player player) {
-        return viewEngine.manualRemove(player);
+        return false;
+        // TODO
+        //return viewEngine.removeManualViewer(player);
     }
 
     /**
-     * Gets the packets needed to spawn this entity depending on the player.
-     * This method should only be used by the {@link EntityView} to correctly handle passengers.
-     * Any external use of this method will likely result in bugs!
+     * Gets the packets needed to spawn this entity depending on the player that is viewing this entity.
+     * This method should only be used by the {@link ViewEngine} to correctly handle passengers.
+     * Any external use of this method will likely result in bugs.
      *
-     * @param player the player to get the spawn packets for
+     * @param player the player to tailor the spawn packets for
      * @return a list of packets needed to spawn this entity
      */
     @ApiStatus.Internal
@@ -545,7 +544,8 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
         packets.add(this.getMetadataPacket());
 
-        // passengers are handled in the EntityView showTo function
+        // passengers are handled by the EntityView class
+        // as noted in the comments above, using this method without knowing what you are doing will almost certainly result in bugs
 
         if (leashHolder != null && (player.equals(leashHolder) || leashHolder.hasViewer(player)))
             packets.add(getAttachEntityPacket());
@@ -562,47 +562,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         return packets;
     }
 
-//    /**
-//     * Called when a new viewer must be shown.
-//     * Method can be subject to deadlocking if the target's viewers are also accessed.
-//     *
-//     * @param player the player to send the packets to
-//     */
-//    @ApiStatus.Internal
-//    public void updateNewViewer(Player player) {
-//        // spawn the entity for the player and send any other related packets (velocity, metadata, passengers, etc)
-//        player.sendPacket(getSpawnPacket());
-//        if (hasVelocity()) player.sendPacket(getVelocityPacket());
-//        player.sendPacket(this.getMetadataPacket());
-//
-//        // Leashes
-//        if (leashHolder != null && (player.equals(leashHolder) || leashHolder.hasViewer(player))) {
-//            player.sendPacket(getAttachEntityPacket());
-//        }
-//
-//        for (Entity entity : leashedEntities) {
-//            if (entity.hasViewer(player)) {
-//                player.sendPacket(entity.getAttachEntityPacket());
-//            }
-//        }
-//
-//        // Head position
-//        player.sendPacket(new EntityHeadLookPacket(getEntityId(), headRotation));
-//    }
-
     /**
-     * Called when a viewer must be destroyed.
-     * Method can be subject to deadlocking if the target's viewers are also accessed.
+     * Gets the packets needed to despawn this entity.
+     * This method should only be used by the {@link ViewEngine} to correctly handle passengers.
+     * Any external use of this method will likely result in bugs.
      *
-     * @param player the player to send the packets to
+     * @return a list of packets needed to despawn this entity
      */
-//    @ApiStatus.Internal
-//    public void updateOldViewer(Player player) {
-//        leashedEntities.forEach(entity -> player.sendPacket(new AttachEntityPacket(entity.getEntityId(), -1)));
-//        player.sendPacket(destroyPacketCache);
-//    }
     @ApiStatus.Internal
-    public List<SendablePacket> getOldViewerPackets(Player player) {
+    public List<SendablePacket> getRemovedViewerPackets() {
         final List<SendablePacket> packets = new ArrayList<>();
 
         for (Entity leashedEntity : leashedEntities) {
@@ -616,14 +584,16 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     @Override
     public Set<Player> getViewers() {
-        return viewers;
+        return viewEngine.getViewers();
     }
 
     /**
      * Gets if this entity's viewers (surrounding players) can be predicted from surrounding chunks.
      */
     public boolean hasPredictableViewers() {
-        return viewEngine.hasPredictableViewers();
+        return false;
+        // TODO
+        // return viewEngine.hasPredictableViewers();
     }
 
     /**
@@ -649,6 +619,11 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         );
 
         updateCollisions();
+
+//        for (Player viewer : viewers) {
+//            removeViewer(viewer);
+//            addViewer(viewer);
+//        }
 
         // TODO
 //        Set<Player> viewers = new HashSet<>(getViewers());
@@ -970,7 +945,8 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         EventDispatcher.call(new RemoveEntityFromInstanceEvent(instance, this));
         if (this instanceof Player player) instance.bossBars().forEach(player::hideBossBar);
         instance.getEntityTracker().unregister(this, trackingTarget, trackingUpdate);
-        this.viewEngine.forManuals(this::removeViewer);
+        // TODO
+//        this.viewEngine.forManuals(this::removeViewer);
         EventsJFR.newInstanceLeave(getUuid(), instance.getUuid()).commit();
     }
 
@@ -1104,9 +1080,16 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         if (vehicle != null)
             vehicle.removePassenger(passenger);
 
+        // fixes TODO
+        // see if this is good tho
+        this.passengers.add(passenger);
+        passenger.vehicle = this;
+
         // make sure that the passenger entity is in the correct instance as the vehicle
         // if not, then we'll need to set their instance to the vehicle's instance
         if (!currentInstance.equals(passenger.getInstance())) {
+            // TODO: when adding a passenger to a hidden entity, it spawns it in the world right here...
+            // TODO: gotta find out how to cleanly not do this
             passenger.setInstance(currentInstance, position).join();
         }
 
@@ -1117,8 +1100,9 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             currentInstance.loadChunk(position).join();
         }
 
-        this.passengers.add(passenger);
-        passenger.vehicle = this;
+//        this.passengers.add(passenger);
+//        passenger.vehicle = this;
+        System.out.println("Viewers: " + getViewers().size());
         sendPacketToViewersAndSelf(getPassengersPacket());
         updatePassengerPosition(position, passenger);
         passenger.synchronizePosition();
@@ -1480,9 +1464,12 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     /**
      * Used to refresh the entity and its passengers position
+     * <br>
      * - put the entity in the right instance chunk
+     * <br>
      * - update the viewable chunks (load and unload)
-     * - add/remove players from the viewers list if {@link #isAutoViewable()} is enabled
+     * <br>
+     * - add/remove players from this entities viewer list if appropriate
      * <p>
      * WARNING: unsafe, should only be used internally in Minestom. Use {@link #teleport(Pos)} instead.
      *
@@ -1806,7 +1793,11 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @Override
     public EntitySnapshot updateSnapshot(SnapshotUpdater updater) {
         final Chunk chunk = currentChunk;
-        final int[] viewersId = this.viewEngine.viewableOption.bitSet.toIntArray();
+        final int[] viewersId = {};
+        // TODO
+//        final int[] viewersId = this.viewEngine.currentViewerIds.toIntArray();
+        // TODO: remove
+//        final int[] viewersId = this.viewEngine.viewableOption.bitSet.toIntArray();
         final int[] passengersId = ArrayUtils.mapToIntArray(passengers, Entity::getEntityId);
         final Entity vehicle = this.vehicle;
         return new SnapshotImpl.Entity(entityType, uuid, id, position, velocity,

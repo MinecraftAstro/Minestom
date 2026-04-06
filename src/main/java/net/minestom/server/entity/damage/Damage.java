@@ -2,7 +2,6 @@ package net.minestom.server.entity.damage;
 
 import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
-import net.minestom.server.component.DataComponent;
 import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.Entity;
@@ -30,8 +29,11 @@ public class Damage implements Taggable {
 
     private final RegistryKey<DamageType> typeKey;
     private final DamageType type;
+    @Nullable
     private final Entity source;
+    @Nullable
     private final Entity attacker;
+    @Nullable
     private final Point sourcePosition;
     private final TagHandler tagHandler = TagHandler.newHandler();
 
@@ -115,15 +117,34 @@ public class Damage implements Taggable {
      * @return the death message, null to not send anything
      */
     public @Nullable Component buildDeathMessage(Player killed) {
-        final Component customName = attacker.get(DataComponents.CUSTOM_NAME);
+        return buildComponent(killed);
+    }
+
+    /**
+     * Builds the text sent to a player in his death screen.
+     *
+     * @param killed the player who has been killed
+     * @return the death screen text, null to not send anything
+     */
+    public @Nullable Component buildDeathScreenText(Player killed) {
+        return buildComponent(killed);
+    }
+
+    private Component buildComponent(Player killed) {
         if (attacker instanceof Player attackerPlayer) {
+            final Component customName = attackerPlayer.get(DataComponents.CUSTOM_NAME);
             return Component.translatable("death.attack." + type.messageId(),
                     Component.text(killed.getUsername()), customName == null ? Component.text(attackerPlayer.getUsername()) : customName
             );
         } else {
-            return Component.translatable("death.attack." + type.messageId(),
-                    Component.text(killed.getUsername()), customName == null ? Component.text(StringUtils.formatAdventureKeyValue(attacker.getEntityType().key().value())) : customName
-            );
+            if (attacker == null) {
+                return Component.translatable("death.attack." + type.messageId(),
+                        Component.text(killed.getUsername()));
+            } else {
+                final Component customName = attacker.get(DataComponents.CUSTOM_NAME);
+                return Component.translatable("death.attack." + type.messageId(),
+                        Component.text(killed.getUsername()), customName == null ? Component.text(StringUtils.formatAdventureKeyValue(attacker.getEntityType().key().value())) : customName);
+            }
         }
     }
 
@@ -163,25 +184,6 @@ public class Damage implements Taggable {
 
     public static PositionalDamage fromPosition(RegistryKey<DamageType> type, Point sourcePosition, float amount) {
         return new PositionalDamage(type, sourcePosition, amount);
-    }
-
-    /**
-     * Builds the text sent to a player in his death screen.
-     *
-     * @param killed the player who has been killed
-     * @return the death screen text, null to not send anything
-     */
-    public @Nullable Component buildDeathScreenText(Player killed) {
-        final Component customName = attacker.get(DataComponents.CUSTOM_NAME);
-        if (attacker instanceof Player attackerPlayer) {
-            return Component.translatable("death.attack." + type.messageId(),
-                    Component.text(killed.getUsername()), customName == null ? Component.text(attackerPlayer.getUsername()) : customName
-            );
-        } else {
-            return Component.translatable("death.attack." + type.messageId(),
-                    Component.text(killed.getUsername()), customName == null ? Component.text(StringUtils.formatAdventureKeyValue(attacker.getEntityType().key().value())) : customName
-            );
-        }
     }
 
     /**

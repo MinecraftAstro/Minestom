@@ -112,6 +112,7 @@ final class EntityTrackerImpl implements EntityTracker {
             LOGGER.warn("Attempted to move unregistered entity {} in the entity tracker", entity.getEntityId());
             return;
         }
+
         Point oldPoint = entry.getLastPosition();
         entry.setLastPosition(newPoint);
         if (oldPoint == null || oldPoint.sameChunk(newPoint)) return;
@@ -123,6 +124,8 @@ final class EntityTrackerImpl implements EntityTracker {
                 targetEntry.removeFromChunk(oldIndex, entity);
             }
         }
+
+        // check if we need to update viewable entities
         if (update != null) {
             difference(oldPoint, newPoint, target, new Update<>() {
                 @Override

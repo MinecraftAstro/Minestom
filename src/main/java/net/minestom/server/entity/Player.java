@@ -49,7 +49,6 @@ import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.EntityTracker;
 import net.minestom.server.instance.Instance;
 import net.minestom.server.instance.SharedInstance;
-import net.minestom.server.instance.block.Block;
 import net.minestom.server.inventory.AbstractInventory;
 import net.minestom.server.inventory.Inventory;
 import net.minestom.server.inventory.PlayerInventory;
@@ -101,6 +100,7 @@ import org.intellij.lang.annotations.MagicConstant;
 import org.jctools.queues.MessagePassingQueue;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.charset.StandardCharsets;
@@ -111,6 +111,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /**
@@ -119,6 +120,7 @@ import java.util.function.UnaryOperator;
  * You can easily create your own implementation of this and use it with {@link ConnectionManager#setPlayerProvider(PlayerProvider)}.
  */
 public class Player extends LivingEntity implements CommandSender, HoverEventSource<ShowEntity>, NamedAndIdentified {
+
     private static final DynamicRegistry<DimensionType> DIMENSION_TYPE_REGISTRY = MinecraftServer.getDimensionTypeRegistry();
 
     private static final Component REMOVE_MESSAGE = Component.text("You have been removed from the server without reason.", NamedTextColor.RED);
@@ -506,7 +508,8 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
                 EntityTracker.Target.ENTITIES, entity -> {
                     // skip refreshing self and make sure to only send data for entities that this player can view
                     if (!entity.getUuid().equals(getUuid()) && entity.hasViewer(this)) {
-                        entity.viewEngine.showTo(this);
+                        // TODO
+                        // entity.viewEngine.showTo(this);
                         // entity.updateNewViewer(this);
                     }
                 });
@@ -1874,6 +1877,20 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
     public void lookAt(Entity entity) {
         // Let the player's client provide updated position values
         sendPacket(new FacePlayerPacket(FacePlayerPacket.FacePosition.EYES, entity.getPosition(), entity.getEntityId(), FacePlayerPacket.FacePosition.EYES));
+    }
+
+    /**
+     * Determines if the entities around the view distance of this player are automatically visible.
+     * True by default.
+     *
+     * @return true if the surrounding entities are visible by this player, false if not
+     */
+    public boolean isAutoViewEntities() {
+        return viewEngine.getPlayerView().isAutoViewEntities();
+    }
+
+    public Predicate<Entity> getViewerRule() {
+        return viewEngine.getPlayerView().getViewerRule();
     }
 
     /**

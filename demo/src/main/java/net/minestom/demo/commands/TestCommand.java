@@ -29,8 +29,8 @@ public class TestCommand extends Command {
 
             entity2.addPassenger(entity);
 
-            entity.setAutoViewable(false);
-            entity.setAutoViewable(true);
+//            entity.setAutoViewable(false);
+//            entity.setAutoViewable(true);
 
             MinecraftServer.getSchedulerManager().buildTask(() -> {
                 entity2.teleport(player.getPosition());
