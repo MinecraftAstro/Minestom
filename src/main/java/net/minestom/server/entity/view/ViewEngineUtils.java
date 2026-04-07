@@ -4,12 +4,14 @@ import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.network.packet.server.SendablePacket;
 import net.minestom.server.network.packet.server.play.SetPassengersPacket;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@ApiStatus.Internal
 final class ViewEngineUtils {
 
     private ViewEngineUtils() {
@@ -17,20 +19,30 @@ final class ViewEngineUtils {
 
     public static boolean hideEntityFromPlayer(Entity entity, Player player) {
         // we can't hide ourselves for ourselves...
-        if (player == entity)
+        if (player == entity) {
             return false;
+        }
 
         // the player is not a viewer of this entity
-        if (!entity.hasViewer(player))
+        if (!entity.hasViewer(player)) {
             return false;
+        }
+
+        // the player is a manual viewer, this entity can not be hidden for the player
+        // this means that even if the entity is out of the view distance for the player, they will still appear for the player in F3 entity count (no destruction packets are sent)
+        if (entity.getViewEngine().getEntityView().getManualViewers().contains(player)) {
+            return false;
+        }
 
         // make sure that the player is not the passenger of the entity that is going to be hidden
         // we'll need to check the entire vehicle chain from the player's vehicle to the root (bottom-most) vehicle
+        // TODO: we dont need to go through the vehicle chain every time (this is a recursive function)...
         Entity vehicle = player.getVehicle();
         while (vehicle != null) {
             // if this is true, we can't hide this entity since the player relies on seeing it...
-            if (vehicle == entity)
+            if (vehicle == entity) {
                 return false;
+            }
 
             vehicle = vehicle.getVehicle();
         }
@@ -56,6 +68,25 @@ final class ViewEngineUtils {
         // remove any passengers of this entity as well
         for (Entity passenger : entity.getPassengers()) {
             hideEntityFromPlayer(passenger, player);
+        }
+
+        return true;
+    }
+
+    public static boolean handleManualViewerRemoval(Entity entity, Player player) {
+        if (player == entity) {
+            return false;
+        }
+
+        // lock the two entity views in a consistent order to prevent deadlocks
+        // the lowest entity ID will be the first lock and the higher entity ID will be the second lock
+        final Entity firstLock = player.getEntityId() < entity.getEntityId() ? player : entity;
+        final Entity secondLock = firstLock == entity ? player : entity;
+
+        synchronized (firstLock.getViewEngine()) {
+            synchronized (secondLock.getViewEngine()) {
+
+            }
         }
 
         return true;
@@ -96,14 +127,10 @@ final class ViewEngineUtils {
                 allVisiblePassengerIds
         );
 
-        System.out.println(allVisiblePassengerIds.size());
-
         // send the correct passenger packets for each vehicle
         for (Map.Entry<Integer, List<Integer>> entry : allVisiblePassengerIds.entrySet()) {
             final int vehicleId = entry.getKey();
             final List<Integer> visiblePassengerIds = entry.getValue();
-            System.out.println(visiblePassengerIds);
-            System.out.println(visiblePassengerIds.size());
             player.sendPacket(new SetPassengersPacket(vehicleId, visiblePassengerIds));
         }
 
@@ -132,8 +159,8 @@ final class ViewEngineUtils {
      * This is going to be called after {@link #collectNewlyVisibleEntityChain(Entity, Player, List)} so that the
      * player updates their viewer status for the newly visible entities.
      *
-     * @param vehicle the vehicle to get the visible passengers from (typically starting at the root vehicle)
-     * @param player the player that wants to know if a passenger is visible for them
+     * @param vehicle             the vehicle to get the visible passengers from (typically starting at the root vehicle)
+     * @param player              the player that wants to know if a passenger is visible for them
      * @param visiblePassengerIds a collection of vehicle IDs and a list of their passenger IDs
      */
     private static void collectAllVisiblePassengers(Entity vehicle,
@@ -216,11 +243,10 @@ final class ViewEngineUtils {
             if (!vehicle.hasViewer(player))
                 return false;
 
-            System.out.println("vehicle: " + vehicle.getEntityType().name());
             vehicle = vehicle.getVehicle();
         }
 
-        return (entity.isAutoViewable() || entity.getViewableRule().test(player))
-                && (player.isAutoViewEntities() || player.getViewerRule().test(entity));
+        return entity.getViewEngine().getEntityView().getManualViewers().contains(player) ||
+                ((entity.isAutoViewable() || entity.getViewableRule().test(player)) && (player.isAutoViewEntities() || player.getViewerRule().test(entity)));
     }
 }

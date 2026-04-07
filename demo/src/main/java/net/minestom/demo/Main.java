@@ -8,6 +8,7 @@ import net.minestom.demo.commands.*;
 import net.minestom.server.Auth;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandManager;
+import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.EntityType;
@@ -28,8 +29,11 @@ import net.minestom.server.utils.time.TimeUnit;
 
 public class Main {
 
+    private static Entity zombie;
+    private static Entity passenger;
+
     static void main() {
-        MinecraftServer server = MinecraftServer.init();
+        MinecraftServer server = MinecraftServer.init(new Auth.Online());
 
         InstanceContainer container = MinecraftServer.getInstanceManager().createInstanceContainer();
         container.setGenerator(unit -> unit.modifier().fillHeight(0, 40, Block.STONE));
@@ -41,31 +45,38 @@ public class Main {
             event.getPlayer().setRespawnPoint(new Pos(0, 41, 0));
         });
 
+        node.addListener(PlayerStartSneakingEvent.class, event -> {
+            Player player = event.getPlayer();
+            zombie = new Entity(EntityType.ZOMBIE);
+
+            final Entity leashedEntity = new Entity(EntityType.COW);
+            leashedEntity.setInstance(player.getInstance(), player.getPosition().add(5, 5, 0)).join();
+
+            zombie.setInstance(player.getInstance(), player.getPosition().add(0, 5, 0)).whenComplete((_, throwable) -> {
+                if (throwable != null) return;
+                System.out.println("creating passenger");
+                passenger = createPassenger(zombie);
+                passenger.addViewer(player);
+
+                MinecraftServer.getSchedulerManager().buildTask(() -> {
+                    System.out.println("Showing passenger to all!");
+                    passenger.show();
+                }).delay(TaskSchedule.seconds(5L)).schedule();
+
+                MinecraftServer.getSchedulerManager().buildTask(() -> {
+                    System.out.println("Removing manual viewer...");
+                    passenger.removeViewer(player);
+                }).delay(TaskSchedule.seconds(10L)).schedule();
+
+                leashedEntity.setLeashHolder(zombie);
+            });
+        });
+
         node.addListener(PlayerSwapItemEvent.class, event -> {
-            var instance = event.getPlayer().getInstance();
+            final Player player = event.getPlayer();
 
-            final Entity entity = new Entity(EntityType.ZOMBIE);
-            final Entity passenger = new Entity(EntityType.SPIDER);
-            final Entity secondPassenger = new Entity(EntityType.COW);
-
-            entity.setInstance(instance, event.getPlayer().getPosition());
-
-            entity.addPassenger(passenger);
-
-            MinecraftServer.getSchedulerManager().buildTask(() -> {
-                System.out.println("Hiding entity");
-                entity.hide();
-            }).delay(TaskSchedule.seconds(5L)).schedule();
-
-            MinecraftServer.getSchedulerManager().buildTask(() -> {
-                System.out.println("Adding passengers");
-                passenger.addPassenger(secondPassenger);
-            }).delay(TaskSchedule.seconds(10L)).schedule();
-
-            MinecraftServer.getSchedulerManager().buildTask(() -> {
-                System.out.println("Showing entity");
-                entity.show();
-            }).delay(TaskSchedule.seconds(15L)).schedule();
+            player.kill();
+            player.respawn();
         });
 
         node.addListener(EntityAttackEvent.class, event -> {
@@ -89,11 +100,11 @@ public class Main {
 
     private static Entity createPassenger(Entity owner) {
         Entity passenger = new Entity(EntityType.SPIDER);
-//        passenger.setAutoViewable(false);
+        passenger.hide();
         passenger.setInstance(owner.getInstance(), owner.getPosition().add(5, 0, 0)).whenComplete((_, throwable) -> {
             if (throwable != null) return;
             owner.addPassenger(passenger);
-        });
+        }).join();
         return passenger;
     }
 
@@ -112,60 +123,6 @@ public class Main {
 //        node.addListener(AsyncPlayerConfigurationEvent.class, event -> {
 //            event.setSpawningInstance(container);
 //            event.getPlayer().setRespawnPoint(new Pos(0, 41, 0));
-//        });
-//
-//        node.addListener(PlayerStartSneakingEvent.class, event -> {
-//            final Player player = event.getPlayer();
-//            final Pos playerPos = player.getPosition();
-//
-//            final Entity entity = new Entity(EntityType.ZOMBIE);
-//            final Entity passenger = new Entity(EntityType.SKELETON);
-//            final Entity secondPassenger = new Entity(EntityType.PIG);
-//
-//            final Entity passengerPassenger = new Entity(EntityType.BLAZE);
-//            final Entity secondPassengerPassenger = new Entity(EntityType.ZOMBIFIED_PIGLIN);
-//            final Entity thirdPassengerPassenger = new Entity(EntityType.COW);
-//
-//            final Entity passengerPassengerPassenger = new Entity(EntityType.SHEEP);
-//
-//            // zombie should have: skeleton and pig passenger
-//            // skeleton should have: blaze and zombified piglin passenger
-//            // pig should have: cow passenger
-//            // blaze should have: sheep passenger
-//
-//            // TODO: intended behavior
-//            // pig and cow should hide
-//            // pig and cow should appear
-//            // pig and cow should hide again
-//            // pig and cow should appear
-//
-//            entity.setInstance(container, playerPos);
-//            entity.addPassenger(passenger);
-//            entity.addPassenger(secondPassenger);
-//
-//            passenger.addPassenger(passengerPassenger);
-//            passenger.addPassenger(secondPassengerPassenger);
-//            secondPassenger.addPassenger(thirdPassengerPassenger);
-//
-//            passengerPassenger.addPassenger(passengerPassengerPassenger);
-//
-//            System.out.println("Entity Count: " + event.getInstance().getEntities().size());
-//
-//            MinecraftServer.getSchedulerManager().buildTask(() -> {
-//                secondPassenger.setAutoViewable(false);
-//            }).delay(TaskSchedule.seconds(3L)).schedule();
-//
-//            MinecraftServer.getSchedulerManager().buildTask(() -> {
-//                secondPassenger.addViewer(player);
-//            }).delay(TaskSchedule.seconds(6L)).schedule();
-//
-//            MinecraftServer.getSchedulerManager().buildTask(() -> {
-//                secondPassenger.removeViewer(player);
-//            }).delay(TaskSchedule.seconds(9L)).schedule();
-//
-//            MinecraftServer.getSchedulerManager().buildTask(() -> {
-//                secondPassenger.setAutoViewable(true);
-//            }).delay(TaskSchedule.seconds(12L)).schedule();
 //        });
 ////
 ////        node.addListener(PlayerStartSneakingEvent.class, event -> {

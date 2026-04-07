@@ -464,6 +464,17 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         lookAt(entity.position.withY(entity.position.y() + entity.getEyeHeight()));
     }
 
+    @Override
+    public final boolean addViewer(Player player) {
+        Check.stateCondition(!isActive(), "Entities must be in an instance before adding viewers");
+        return viewEngine.addManualViewer(player);
+    }
+
+    @Override
+    public final boolean removeViewer(Player player) {
+        return viewEngine.removeManualViewer(player);
+    }
+
     // hides the entity for all players
     public void hide() {
         viewEngine.hide();
@@ -478,6 +489,10 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         return viewEngine.getEntityView().isAutoViewable();
     }
 
+    public void setViewableRule(Predicate<Player> viewableRule) {
+        viewEngine.setViewableRule(viewableRule);
+    }
+
     public Predicate<Player> getViewableRule() {
         return viewEngine.getEntityView().getViewableRule();
     }
@@ -485,45 +500,6 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @ApiStatus.Internal
     public ViewEngine getViewEngine() {
         return viewEngine;
-    }
-
-    //    public void updateViewableRule(@Nullable Predicate<Player> predicate) {
-//        this.viewEngine.viewableOption.updateRule(predicate);
-//    }
-//
-//    public void updateViewableRule() {
-//        this.viewEngine.viewableOption.updateRule();
-//    }
-
-//    public boolean autoViewEntities() {
-//        return viewEngine.viewerOption.isAuto();
-//    }
-
-//    public void setAutoViewEntities(boolean autoViewer) {
-//        this.viewEngine.viewerOption.updateAuto(autoViewer);
-//    }
-
-//    public void updateViewerRule(@Nullable Predicate<Entity> predicate) {
-//        this.viewEngine.viewerOption.updateRule(predicate);
-//    }
-//
-//    public void updateViewerRule() {
-//        this.viewEngine.viewerOption.updateRule();
-//    }
-
-    @Override
-    public final boolean addViewer(Player player) {
-        Check.stateCondition(!isActive(), "Entities must be in an instance before adding viewers");
-        return false;
-        // TODO
-        //return viewEngine.addManualViewer(player);
-    }
-
-    @Override
-    public final boolean removeViewer(Player player) {
-        return false;
-        // TODO
-        //return viewEngine.removeManualViewer(player);
     }
 
     /**
@@ -537,6 +513,8 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @ApiStatus.Internal
     public List<SendablePacket> getNewViewerPackets(Player player) {
         final List<SendablePacket> packets = new ArrayList<>();
+
+        System.out.println("Getting new viewer packets...");
 
         packets.add(getSpawnPacket());
         if (hasVelocity())
@@ -591,44 +569,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      * Gets if this entity's viewers (surrounding players) can be predicted from surrounding chunks.
      */
     public boolean hasPredictableViewers() {
-        return false;
-        // TODO
-        // return viewEngine.hasPredictableViewers();
-    }
-
-    /**
-     * Changes the entity type of this entity.
-     * <p>
-     * Works by changing the internal entity type field and by calling {@link #removeViewer(Player)}
-     * followed by {@link #addViewer(Player)} to all current viewers.
-     * <p>
-     * Be aware that this only change the visual of the entity, the {@link BoundingBox}
-     * will not be modified.
-     *
-     * @param entityType the new entity type
-     */
-    public synchronized void switchEntityType(EntityType entityType) {
-        this.entityType = entityType;
-        this.metadata = new MetadataHolder(this);
-        this.entityMeta = MetadataHolder.createMeta(entityType, this, this.metadata);
-
-        final RegistryData.EntityEntry registry = entityType.registry();
-        this.aerodynamics = aerodynamics.withAirResistance(
-                registry.horizontalAirResistance(),
-                registry.verticalAirResistance()
-        );
-
-        updateCollisions();
-
-//        for (Player viewer : viewers) {
-//            removeViewer(viewer);
-//            addViewer(viewer);
-//        }
-
-        // TODO
-//        Set<Player> viewers = new HashSet<>(getViewers());
-//        getViewers().forEach(this::updateOldViewer);
-//        viewers.forEach(this::updateNewViewer);
+        return viewEngine.hasPredictableViewers();
     }
 
     /**
@@ -945,8 +886,12 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         EventDispatcher.call(new RemoveEntityFromInstanceEvent(instance, this));
         if (this instanceof Player player) instance.bossBars().forEach(player::hideBossBar);
         instance.getEntityTracker().unregister(this, trackingTarget, trackingUpdate);
-        // TODO
-//        this.viewEngine.forManuals(this::removeViewer);
+        System.out.println(entityType.name() + " was removed from instance");
+        synchronized (viewEngine) {
+            for (Player player : viewEngine.getEntityView().getManualViewers()) {
+                viewEngine.removeManualViewer(player);
+            }
+        }
         EventsJFR.newInstanceLeave(getUuid(), instance.getUuid()).commit();
     }
 
@@ -1080,16 +1025,14 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         if (vehicle != null)
             vehicle.removePassenger(passenger);
 
-        // fixes TODO
-        // see if this is good tho
+        // since view engine updates happen during setInstance, we need to mark the relationship of the passenger earlier on to prevent view engine issues
+        // i.e. when adding a passenger to a hidden entity, it would spawn in the world before it was marked as a passenger and the view engine would treat it as a normal entity, this is not correct behavior
         this.passengers.add(passenger);
         passenger.vehicle = this;
 
         // make sure that the passenger entity is in the correct instance as the vehicle
         // if not, then we'll need to set their instance to the vehicle's instance
         if (!currentInstance.equals(passenger.getInstance())) {
-            // TODO: when adding a passenger to a hidden entity, it spawns it in the world right here...
-            // TODO: gotta find out how to cleanly not do this
             passenger.setInstance(currentInstance, position).join();
         }
 
@@ -1100,9 +1043,6 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             currentInstance.loadChunk(position).join();
         }
 
-//        this.passengers.add(passenger);
-//        passenger.vehicle = this;
-        System.out.println("Viewers: " + getViewers().size());
         sendPacketToViewersAndSelf(getPassengersPacket());
         updatePassengerPosition(position, passenger);
         passenger.synchronizePosition();
@@ -1793,11 +1733,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     @Override
     public EntitySnapshot updateSnapshot(SnapshotUpdater updater) {
         final Chunk chunk = currentChunk;
-        final int[] viewersId = {};
-        // TODO
-//        final int[] viewersId = this.viewEngine.currentViewerIds.toIntArray();
-        // TODO: remove
-//        final int[] viewersId = this.viewEngine.viewableOption.bitSet.toIntArray();
+        final int[] viewersId = viewEngine.getEntityView().getViewers().toIntArray();
         final int[] passengersId = ArrayUtils.mapToIntArray(passengers, Entity::getEntityId);
         final Entity vehicle = this.vehicle;
         return new SnapshotImpl.Entity(entityType, uuid, id, position, velocity,

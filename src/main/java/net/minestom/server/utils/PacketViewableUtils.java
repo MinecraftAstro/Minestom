@@ -25,6 +25,7 @@ import java.util.WeakHashMap;
 
 @ApiStatus.Internal
 public final class PacketViewableUtils {
+
     // Viewable packets
     private static volatile Map<Viewable, ViewableStorage> storageMap = new WeakHashMap<>();
 

@@ -98,7 +98,7 @@ public class EntityMetaIntegrationTest {
 
         //Creates entity and name.
         Entity entity = new Entity(EntityType.BEE);
-        entity.setAutoViewable(false);
+        entity.hide();
         entity.getEntityMeta().setNotifyAboutChanges(false);
         entity.setCustomName(Component.text("Custom Name"));
         entity.setCustomNameVisible(true);

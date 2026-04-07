@@ -10,6 +10,7 @@ import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.instance.EntityTracker;
 import net.minestom.server.instance.Instance;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 
@@ -18,18 +19,22 @@ import java.util.function.Predicate;
 
 public final class ViewEngine {
 
+    // gets the entity that this view engine represents
     private final Entity entity;
 
+    // all entities (which includes players) will have an entity view by default
     private final EntityView entityView;
+    // only players will have a player view (it will be null for all other types of entities)
     @Nullable
     private PlayerView playerView;
 
+    // gets the last known location of this entity, or null if there is none
     @Nullable
     private volatile TrackedLocation trackedLocation;
 
     private final Set<Player> viewers = new ViewerSet();
 
-    // useful to prevent collection resizing
+    // useful to prevent collection resizing when processing viewer/viewable rule updates
     private int previousNearbyPlayersCount;
     private int previousNearbyEntitiesCount;
 
@@ -38,26 +43,64 @@ public final class ViewEngine {
     public ViewEngine(Entity entity) {
         this.entity = entity;
 
-        this.entityView = new EntityView(entity);
+        this.entityView = new EntityView();
         if (entity instanceof Player player) {
             this.playerView = new PlayerView(player);
         }
     }
 
-    // manually add a viewer
-    // this goes away when viewable/viewer rules change
-    // TODO: should we have a manual viewer?
-    public boolean addViewer(Player player) {
-        return false;
+    /**
+     * Manually adds a viewer to this entity. The {@link Player} will always be able to view this entity
+     * even if the viewable/viewer rules change or if the player goes out of render distance. The only way
+     * to remove a manual viewer is to use {@link #removeManualViewer(Player)}
+     *
+     * @param player the player to add as a manual viewer
+     * @return true if the player was added as a manual viewer, false if not
+     */
+    public boolean addManualViewer(Player player) {
+        if (player == entity)
+            return false;
+
+        final boolean added;
+        synchronized (lock) {
+            added = entityView.getManualViewers().add(player);
+        }
+
+        if (added) {
+            ViewEngineUtils.showEntityToPlayer(entity, player);
+        }
+
+        return added;
     }
 
-    // manually remove a viewer
-    // this goes away when viewable/viewer rules change
-    // TODO: should we have a manual viewer?
-    public boolean removeViewer(Player player) {
-        return false;
+    /**
+     * Manually removes a viewer from this entity. This does not hide the entity automatically, it only removes the {@link Player}
+     * as a manual viewer and makes them adhere to the viewable/viewer rules.
+     *
+     * @param player the player to remove as a manual viewer
+     * @return true if the player was removed as a manual viewer, false if not
+     */
+    public boolean removeManualViewer(Player player) {
+        if (player == entity)
+            return false;
+
+        final boolean removed;
+        synchronized (lock) {
+            removed = entityView.getManualViewers().remove(player);
+        }
+
+        if (removed) {
+            ViewEngineUtils.handleManualViewerRemoval(entity, player);
+        }
+
+        return removed;
     }
 
+    /**
+     * Hides the {@code entity} from all {@link Player}s besides manual viewers.
+     *
+     * @return true if the entity could be hidden, false if not
+     */
     public synchronized boolean hide() {
         final Predicate<Player> newViewableRule = _ -> false;
 
@@ -68,6 +111,11 @@ public final class ViewEngine {
         return true;
     }
 
+    /**
+     * Shows the {@code entity} to all {@link Player}s unless the players viewer rule does not permit them to see this entity.
+     *
+     * @return true if the entity could be shown, false if not
+     */
     public synchronized boolean show() {
         if (entityView.isAutoViewable())
             return false;
@@ -81,7 +129,11 @@ public final class ViewEngine {
         return true;
     }
 
-    // player only
+    /**
+     * Assuming that this {@link ViewEngine} represents a {@link Player}, hides all entities from the player
+     *
+     * @return
+     */
     public boolean hideEntities() {
         if (playerView == null)
             return false;
@@ -154,6 +206,9 @@ public final class ViewEngine {
 
     // internal method
     private void handleViewerRuleUpdate(Predicate<Entity> viewerRule) {
+        if (playerView == null)
+            return;
+
         final Player player = playerView.getPlayer();
         for (Entity nearbyEntity : getNearbyEntities()) {
             // the player can now auto-view entities, attempt to show the entity (we still have to worry about entity viewable rules)
@@ -170,6 +225,10 @@ public final class ViewEngine {
         }
     }
 
+    public synchronized boolean hasPredictableViewers() {
+        return entityView.isAutoViewable() && entityView.getManualViewers().isEmpty();
+    }
+
     public EntityView getEntityView() {
         return entityView;
     }
@@ -180,7 +239,7 @@ public final class ViewEngine {
     }
 
     public synchronized void handleTrackerAddition(Entity entity) {
-        System.out.println("Handle entity addition: " + this.entity.getEntityType());
+        System.out.println("Handle entity addition: " + entity.getEntityType());
 
         if (playerView != null) {
             ViewEngineUtils.showEntityToPlayer(entity, playerView.getPlayer());
@@ -192,6 +251,8 @@ public final class ViewEngine {
     }
 
     public synchronized void handleTrackerRemoval(Entity entity) {
+        System.out.println("Handle entity removal: " + entity.getEntityType().name());
+
         if (playerView != null) {
             ViewEngineUtils.hideEntityFromPlayer(entity, playerView.getPlayer());
         }
@@ -201,6 +262,13 @@ public final class ViewEngine {
         }
     }
 
+    /**
+     * Updates the current location (instance and point) of this entity.
+     * This is useful for viewing purposes because we want to keep track of nearby players and entities.
+     *
+     * @param instance the instance that this entity is in, or null if none
+     * @param point    the point that this entity is at
+     */
     public void handleTrackerUpdate(@Nullable Instance instance, Point point) {
         this.trackedLocation = instance != null ? new TrackedLocation(instance, point) : null;
     }
@@ -259,9 +327,10 @@ public final class ViewEngine {
     final class ViewerSet extends AbstractSet<Player> {
 
         @Override
-        public Iterator<Player> iterator() {
-            final List<Player> players;
+        public @NotNull Iterator<Player> iterator() {
+            final Set<Player> players;
             synchronized (lock) {
+                // consists of all viewers (including manual viewers)
                 final IntSet viewers = entityView.getViewers();
                 if (viewers.isEmpty())
                     return Collections.emptyIterator();
@@ -270,7 +339,7 @@ public final class ViewEngine {
                 if (instance == null)
                     return Collections.emptyIterator();
 
-                players = new ArrayList<>(viewers.size());
+                players = new HashSet<>(viewers.size());
                 for (IntIterator iterator = viewers.iterator(); iterator.hasNext(); ) {
                     final int playerId = iterator.nextInt();
                     final Player player = (Player) instance.getEntityById(playerId);
@@ -285,7 +354,7 @@ public final class ViewEngine {
         @Override
         public int size() {
             synchronized (lock) {
-                final Instance instance = entityView.getEntity().getInstance();
+                final Instance instance = entity.getInstance();
                 if (instance == null)
                     return 0;
 

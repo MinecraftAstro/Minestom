@@ -22,7 +22,7 @@ public class SetEntityType extends Command {
         }
 
         var entityType = context.get(entityTypeArg);
-        player.switchEntityType(entityType);
+//        player.switchEntityType(entityType);
         player.sendMessage("set entity type to " + entityType);
     }
 }

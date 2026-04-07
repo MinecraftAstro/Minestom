@@ -100,7 +100,6 @@ import org.intellij.lang.annotations.MagicConstant;
 import org.jctools.queues.MessagePassingQueue;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.charset.StandardCharsets;
@@ -503,16 +502,8 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
         // The client unloads chunks when respawning, so resend all chunks next to spawn
         ChunkRange.chunksInRange(respawnPosition, this.effectiveViewDistance(), chunkAdder);
         chunksLoadedByClient = new Vec(respawnPosition.chunkX(), respawnPosition.chunkZ());
-        // Client also needs all entities resent to them, since those are unloaded as well
-        this.instance.getEntityTracker().nearbyEntitiesByChunkRange(respawnPosition, this.effectiveViewDistance(),
-                EntityTracker.Target.ENTITIES, entity -> {
-                    // skip refreshing self and make sure to only send data for entities that this player can view
-                    if (!entity.getUuid().equals(getUuid()) && entity.hasViewer(this)) {
-                        // TODO
-                        // entity.viewEngine.showTo(this);
-                        // entity.updateNewViewer(this);
-                    }
-                });
+
+        // TODO: client needs nearby entities resent to them if they are unloaded properly when the player is killed (which they arent)
 
         teleport(respawnPosition).thenRun(this::refreshAfterTeleport);
     }
@@ -1879,6 +1870,14 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
         sendPacket(new FacePlayerPacket(FacePlayerPacket.FacePosition.EYES, entity.getPosition(), entity.getEntityId(), FacePlayerPacket.FacePosition.EYES));
     }
 
+    public boolean hideEntities() {
+        return viewEngine.hideEntities();
+    }
+
+    public boolean showEntities() {
+        return viewEngine.showEntities();
+    }
+
     /**
      * Determines if the entities around the view distance of this player are automatically visible.
      * True by default.
@@ -1887,6 +1886,10 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
      */
     public boolean isAutoViewEntities() {
         return viewEngine.getPlayerView().isAutoViewEntities();
+    }
+
+    public void setViewerRule(Predicate<Entity> viewerRule) {
+        viewEngine.setViewerRule(viewerRule);
     }
 
     public Predicate<Entity> getViewerRule() {

@@ -24,6 +24,6 @@ val deployJar by tasks.registering(Copy::class) {
     dependsOn(shadowJarTask)
 
     from(shadowJarTask.flatMap { it.archiveFile })
-    into(file("${System.getProperty("user.home")}${File.separator}Desktop${File.separator}MinestomServer"))
-    //into(file("${System.getProperty("user.home")}${File.separator}OneDrive${File.separator}Desktop${File.separator}TestingServer"))
+    //into(file("${System.getProperty("user.home")}${File.separator}Desktop${File.separator}MinestomServer"))
+    into(file("${System.getProperty("user.home")}${File.separator}OneDrive${File.separator}Desktop${File.separator}TestingServer"))
 }
