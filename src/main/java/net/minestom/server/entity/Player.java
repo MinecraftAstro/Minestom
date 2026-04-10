@@ -1010,10 +1010,6 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
 
     /**
      * Gets the entity meta for the player.
-     *
-     * <p>Note that this method will throw an exception if the player's entity type has
-     * been changed with {@link #switchEntityType(EntityType)}. It is wise to check
-     * {@link #getEntityType()} first.</p>
      */
     public PlayerMeta getPlayerMeta() {
         return (PlayerMeta) super.getEntityMeta();
@@ -1021,9 +1017,6 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
 
     /**
      * Gets the player additional hearts.
-     *
-     * <p>Note that this function is uncallable if the player has their entity type switched
-     * with {@link #switchEntityType(EntityType)}.</p>
      *
      * @return the player additional hearts
      */
@@ -1033,9 +1026,6 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
 
     /**
      * Changes the amount of additional hearts shown.
-     *
-     * <p>Note that this function is uncallable if the player has their entity type switched
-     * with {@link #switchEntityType(EntityType)}.</p>
      *
      * @param additionalHearts the count of additional hearts
      */

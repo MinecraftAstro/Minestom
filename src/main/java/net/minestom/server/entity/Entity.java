@@ -392,15 +392,18 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             setPositionInternal(globalPosition, globalPosition.yaw());
             this.velocity = globalVelocity;
             refreshCoordinate(globalPosition);
-            if (this instanceof Player player)
+            if (this instanceof Player player) {
                 player.synchronizePositionAfterTeleport(position, velocity, flags, shouldConfirm);
-            else synchronizePosition();
+            } else {
+                synchronizePosition();
+            }
         };
 
         if (chunks != null && chunks.length > 0) {
             // Chunks need to be loaded before the teleportation can happen
             return ChunkUtils.optionalLoadAll(instance, chunks, null).thenRun(endCallback);
         }
+
         final Pos currentPosition = this.position;
         if (!currentPosition.sameChunk(globalPosition)) {
             // Ensure that the chunk is loaded
@@ -514,8 +517,6 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     public List<SendablePacket> getNewViewerPackets(Player player) {
         final List<SendablePacket> packets = new ArrayList<>();
 
-        System.out.println("Getting new viewer packets...");
-
         packets.add(getSpawnPacket());
         if (hasVelocity())
             packets.add(getVelocityPacket());
@@ -541,6 +542,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     }
 
     /**
+     * Called when this entity is shown to the player.
+     *
+     * @param player the player
+     */
+    public void updateNewViewer(Player player) {
+
+    }
+
+    /**
      * Gets the packets needed to despawn this entity.
      * This method should only be used by the {@link ViewEngine} to correctly handle passengers.
      * Any external use of this method will likely result in bugs.
@@ -558,6 +568,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         packets.add(destroyPacketCache);
 
         return packets;
+    }
+
+    /**
+     * Called when this entity is hidden from the player.
+     *
+     * @param player the player
+     */
+    public void updateRemovedViewer(Player player) {
+
     }
 
     @Override
@@ -886,12 +905,13 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         EventDispatcher.call(new RemoveEntityFromInstanceEvent(instance, this));
         if (this instanceof Player player) instance.bossBars().forEach(player::hideBossBar);
         instance.getEntityTracker().unregister(this, trackingTarget, trackingUpdate);
-        System.out.println(entityType.name() + " was removed from instance");
+
         synchronized (viewEngine) {
             for (Player player : viewEngine.getEntityView().getManualViewers()) {
                 viewEngine.removeManualViewer(player);
             }
         }
+
         EventsJFR.newInstanceLeave(getUuid(), instance.getUuid()).commit();
     }
 
@@ -1344,6 +1364,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             // not returning here will duplicate position packets
             return;
         }
+
         // Update viewers
         final boolean viewChange = !position.sameView(lastSyncedPosition);
         final double distanceX = Math.abs(position.x() - lastSyncedPosition.x());
@@ -1394,9 +1415,15 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      */
     private void updatePassengerPosition(Point newPosition, Entity passenger) {
         final Pos oldPassengerPos = passenger.position;
-        final Pos newPassengerPos = oldPassengerPos.withCoord(newPosition.x(),
-                newPosition.y() + EntityUtils.getPassengerHeightOffset(this, passenger),
-                newPosition.z());
+//        final Pos newPassengerPos = oldPassengerPos.withCoord(
+//                newPosition.x(),
+//                newPosition.y() + EntityUtils.getPassengerHeightOffset(this, passenger),
+//                newPosition.z()
+//        );
+        final Pos newPassengerPos = newPosition.withY(
+                newPosition.y() + EntityUtils.getPassengerHeightOffset(this, passenger)
+        ).asPos();
+
         passenger.setPositionInternal(newPassengerPos, newPassengerPos.yaw());
         passenger.previousPosition = oldPassengerPos;
         passenger.refreshCoordinate(newPassengerPos);
@@ -1424,6 +1451,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
                 updatePassengerPosition(newPosition, passenger);
             }
         }
+
         // Handle chunk switch
         final Instance instance = getInstance();
         assert instance != null;

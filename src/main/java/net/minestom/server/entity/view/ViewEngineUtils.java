@@ -17,34 +17,45 @@ final class ViewEngineUtils {
     private ViewEngineUtils() {
     }
 
-    public static boolean hideEntityFromPlayer(Entity entity, Player player) {
+    public static void hideEntityFromPlayer(Entity entity, Player player) {
+        hideEntityFromPlayer(entity, player, false);
+    }
+
+    public static void hideEntityFromPlayer(Entity entity,
+                                            Player player,
+                                            boolean previousManualViewer) {
+        // make sure that the player is not the passenger of the entity that might be hidden
+        // we'll need to check the entire vehicle chain from the player's vehicle to the root (bottom-most) vehicle
+        Entity vehicle = player.getVehicle();
+        while (vehicle != null) {
+            // if this is true, we can't hide this entity since the player relies on seeing it...
+            if (vehicle == entity) {
+                return;
+            }
+
+            vehicle = vehicle.getVehicle();
+        }
+
+        hideEntityFromPlayerInternal(entity, player, previousManualViewer);
+    }
+
+    private static void hideEntityFromPlayerInternal(Entity entity,
+                                                     Player player,
+                                                     boolean previousManualViewer) {
         // we can't hide ourselves for ourselves...
         if (player == entity) {
-            return false;
+            return;
         }
 
         // the player is not a viewer of this entity
         if (!entity.hasViewer(player)) {
-            return false;
+            return;
         }
 
         // the player is a manual viewer, this entity can not be hidden for the player
         // this means that even if the entity is out of the view distance for the player, they will still appear for the player in F3 entity count (no destruction packets are sent)
         if (entity.getViewEngine().getEntityView().getManualViewers().contains(player)) {
-            return false;
-        }
-
-        // make sure that the player is not the passenger of the entity that is going to be hidden
-        // we'll need to check the entire vehicle chain from the player's vehicle to the root (bottom-most) vehicle
-        // TODO: we dont need to go through the vehicle chain every time (this is a recursive function)...
-        Entity vehicle = player.getVehicle();
-        while (vehicle != null) {
-            // if this is true, we can't hide this entity since the player relies on seeing it...
-            if (vehicle == entity) {
-                return false;
-            }
-
-            vehicle = vehicle.getVehicle();
+            return;
         }
 
         // lock the two entity views in a consistent order to prevent deadlocks
@@ -54,6 +65,17 @@ final class ViewEngineUtils {
 
         synchronized (firstLock.getViewEngine()) {
             synchronized (secondLock.getViewEngine()) {
+                // if the player was a previous manual viewer, we don't want to hide this entity right away
+                // instead, we'll check the viewable and viewer rules and see if the player can continue to view the entity
+                // if not, then we'll hide them accordingly
+                if (previousManualViewer) {
+                    if ((entity.isAutoViewable() || entity.getViewableRule().test(player))
+                            && (player.isAutoViewEntities() || player.getViewerRule().test(entity))) {
+                        // the player can still see this entity, even after being removed as a manual viewer
+                        return;
+                    }
+                }
+
                 // remove the player as a viewer for the entity
                 entity.getViewEngine().getEntityView().getViewers().remove(player.getEntityId());
 
@@ -64,42 +86,22 @@ final class ViewEngineUtils {
 
         // remove the entity for the player
         player.sendPackets(entity.getRemovedViewerPackets());
+        entity.updateRemovedViewer(player);
 
         // remove any passengers of this entity as well
         for (Entity passenger : entity.getPassengers()) {
-            hideEntityFromPlayer(passenger, player);
+            hideEntityFromPlayerInternal(passenger, player, false);
         }
-
-        return true;
     }
 
-    public static boolean handleManualViewerRemoval(Entity entity, Player player) {
-        if (player == entity) {
-            return false;
-        }
-
-        // lock the two entity views in a consistent order to prevent deadlocks
-        // the lowest entity ID will be the first lock and the higher entity ID will be the second lock
-        final Entity firstLock = player.getEntityId() < entity.getEntityId() ? player : entity;
-        final Entity secondLock = firstLock == entity ? player : entity;
-
-        synchronized (firstLock.getViewEngine()) {
-            synchronized (secondLock.getViewEngine()) {
-
-            }
-        }
-
-        return true;
-    }
-
-    public static boolean showEntityToPlayer(Entity entity, Player player) {
+    public static void showEntityToPlayer(Entity entity, Player player) {
         // we can't show ourselves to ourselves...
         if (player == entity)
-            return false;
+            return;
 
         // the player is already a viewer of this entity
         if (entity.hasViewer(player))
-            return false;
+            return;
 
         // collect the newly visible entities for the player
         // this includes the entity's passengers, if they are also visible to the player
@@ -109,13 +111,14 @@ final class ViewEngineUtils {
         // check to make sure that there are new entities to show the player
         // if not, then we don't need to send any packets to the player
         if (newlyVisibleEntityChain.isEmpty())
-            return false;
+            return;
 
         // spawn all the newly visible entities first
         // we'll handle passengers after this
         for (Entity newlyVisibleEntity : newlyVisibleEntityChain) {
             final List<SendablePacket> entitySpawnPackets = newlyVisibleEntity.getNewViewerPackets(player);
             player.sendPackets(entitySpawnPackets);
+            entity.updateNewViewer(player);
         }
 
         // get the correct passenger relationships (with respect to visibility rules)
@@ -133,8 +136,6 @@ final class ViewEngineUtils {
             final List<Integer> visiblePassengerIds = entry.getValue();
             player.sendPacket(new SetPassengersPacket(vehicleId, visiblePassengerIds));
         }
-
-        return true;
     }
 
     /**

@@ -1,20 +1,17 @@
-![banner](banner_dark.png#gh-dark-mode-only)
-![banner](banner_light.png#gh-light-mode-only)
-
-# Minestom
+# Coconut
 
 [![license](https://img.shields.io/github/license/Minestom/Minestom?style=for-the-badge&color=b2204c)](../LICENSE)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=for-the-badge)](https://github.com/RichardLitt/standard-readme)  
 [![javadocs](https://img.shields.io/badge/documentation-javadocs-4d7a97?style=for-the-badge)](https://javadoc.minestom.net)
 [![wiki](https://img.shields.io/badge/documentation-wiki-74aad6?style=for-the-badge)](https://wiki.minestom.net/)
-[![discord-banner](https://img.shields.io/discord/706185253441634317?label=discord&style=for-the-badge&color=7289da)](https://discord.gg/pkFRvqB)
+[![discord-banner](https://img.shields.io/discord/706185253441634317?label=discord&style=for-the-badge&color=7289da)](https://discord.com/invite/8upQjNDQa9)
 
-Minestom is an open-source library that enables developers to create their own Minecraft server software, without any code from Mojang.
+Coconut is a fork of Minestom (an open-source library) that enables developers to create their own Minecraft server without any code from Mojang.
 
-The main difference between Mojang's vanilla server and a minestom-based server, is that ours does not contain any features by default!
-However, we have a complete API which is designed to allow you to make anything possible, with ease.
+The main difference between Mojang vanilla server and a Coconut base server is that Coconut does not contain any features by defaut.
+However, we have a complete API which is designed to allow you to make anything possible.
 
-This is a developer API not meant to be used by end-users. Replacing Bukkit/Forge/Sponge with this **will not work** since we do not implement any of their APIs.
+This a developer API not meant to be used by end-users. Replacing Paper/Forge/Sponge with this **will not work** since we do not implement any of their APIs.
 
 # Table of contents
 - [Install](#install)

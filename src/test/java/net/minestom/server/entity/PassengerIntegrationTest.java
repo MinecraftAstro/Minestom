@@ -111,7 +111,7 @@ public class PassengerIntegrationTest {
 
     @Test
     public void removePassengerTest(Env env) {
-
+        final Instance instance = env.createFlatInstance();
     }
 
     @Test

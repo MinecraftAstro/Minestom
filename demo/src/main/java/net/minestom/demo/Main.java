@@ -58,15 +58,15 @@ public class Main {
                 passenger = createPassenger(zombie);
                 passenger.addViewer(player);
 
-                MinecraftServer.getSchedulerManager().buildTask(() -> {
-                    System.out.println("Showing passenger to all!");
-                    passenger.show();
-                }).delay(TaskSchedule.seconds(5L)).schedule();
-
-                MinecraftServer.getSchedulerManager().buildTask(() -> {
-                    System.out.println("Removing manual viewer...");
-                    passenger.removeViewer(player);
-                }).delay(TaskSchedule.seconds(10L)).schedule();
+//                MinecraftServer.getSchedulerManager().buildTask(() -> {
+//                    System.out.println("Showing passenger to all!");
+//                    passenger.show();
+//                }).delay(TaskSchedule.seconds(5L)).schedule();
+//
+//                MinecraftServer.getSchedulerManager().buildTask(() -> {
+//                    System.out.println("Removing manual viewer...");
+//                    passenger.removeViewer(player);
+//                }).delay(TaskSchedule.seconds(10L)).schedule();
 
                 leashedEntity.setLeashHolder(zombie);
             });
@@ -75,8 +75,10 @@ public class Main {
         node.addListener(PlayerSwapItemEvent.class, event -> {
             final Player player = event.getPlayer();
 
-            player.kill();
-            player.respawn();
+            zombie.teleport(player.getPosition()).join();
+
+//            player.kill();
+//            player.respawn();
         });
 
         node.addListener(EntityAttackEvent.class, event -> {

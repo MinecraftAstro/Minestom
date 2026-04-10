@@ -90,7 +90,7 @@ public final class ViewEngine {
         }
 
         if (removed) {
-            ViewEngineUtils.handleManualViewerRemoval(entity, player);
+            ViewEngineUtils.hideEntityFromPlayer(entity, player, true);
         }
 
         return removed;
@@ -239,8 +239,6 @@ public final class ViewEngine {
     }
 
     public synchronized void handleTrackerAddition(Entity entity) {
-        System.out.println("Handle entity addition: " + entity.getEntityType());
-
         if (playerView != null) {
             ViewEngineUtils.showEntityToPlayer(entity, playerView.getPlayer());
         }
@@ -251,8 +249,6 @@ public final class ViewEngine {
     }
 
     public synchronized void handleTrackerRemoval(Entity entity) {
-        System.out.println("Handle entity removal: " + entity.getEntityType().name());
-
         if (playerView != null) {
             ViewEngineUtils.hideEntityFromPlayer(entity, playerView.getPlayer());
         }
