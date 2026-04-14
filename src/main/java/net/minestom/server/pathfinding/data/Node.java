@@ -29,7 +29,7 @@ public final class Node implements Comparable<Node> {
         this.point = point;
         this.depth = depth;
         this.g = 0;
-        this.h = 0; //point.manhattanDistance(target);
+        this.h = point.manhattanDistance(target);
         this.start = start;
         this.target = target;
         this.type = Type.EMPTY;
@@ -49,7 +49,8 @@ public final class Node implements Comparable<Node> {
     }
 
     public double getF() {
-        return g + h;
+        // add a small weight to increase performance with a trade-off for path optimality
+        return g + 1.5 * h;
     }
 
     public void setG(double g) {
@@ -148,7 +149,8 @@ public final class Node implements Comparable<Node> {
     @Override
     public String toString() {
         return "Node{" +
-                "g=" + g +
+                "parent=" + (parentNode == null ? "null" : parentNode.point()) +
+                ", g=" + g +
                 ", h=" + h +
                 ", f=" + getF() +
                 '}';

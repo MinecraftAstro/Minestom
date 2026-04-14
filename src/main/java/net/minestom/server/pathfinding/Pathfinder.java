@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -32,7 +33,7 @@ public final class Pathfinder {
                             .groundBlockCost(Block.LAVA, CostProcessor.ILLEGAL_MOVE_COST)
                             .build()
                     )
-                    .debug(false)
+                    .debug(true)
                     .build()
     );
 
@@ -148,16 +149,19 @@ public final class Pathfinder {
         }
 
         // reconstruct the path by tracing through the nodes that were taken
+        final List<Node> debugNodes = new ArrayList<>();
         final List<PathPoint> pathPoints = new ArrayList<>();
         Node currentNode = endNode;
         while (currentNode != null) {
-            System.out.println(currentNode);
-            System.out.println();
+            debugNodes.add(currentNode);
             pathPoints.add(new PathPoint(currentNode.point(), currentNode.getType()));
             currentNode = currentNode.getParentNode();
         }
 
-        System.out.println(currentNode);
+        Collections.reverse(debugNodes);
+        for (Node node : debugNodes) {
+            System.out.println(node);
+        }
 
         Collections.reverse(pathPoints);
         return new Path(bestEffort ? Path.State.BEST_EFFORT : Path.State.FOUND, pathPoints, start, target);
@@ -169,50 +173,43 @@ public final class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         for (Vec offset : options.movementStrategy()) {
-            final Point neighborPoint = currentNode.point().add(offset);
-            final long packedPoint = RegionKey.pack(neighborPoint);
-
-            // chck if the neighbor is in the open set
-            if (pathfindingContext.openSet().contains(packedPoint)) {
-                final Node existingNode = pathfindingContext.openSetNodes().get(packedPoint);
-                updateExistingNode(existingNode, packedPoint, currentNode, mobContext, pathfindingContext);
-                continue;
-            }
-
-            // check if the neighbor is in the closed set
-            final SpatialData spatialData = getOrCreateSpatialData(neighborPoint, pathfindingContext);
-            if (spatialData.contains(neighborPoint, packedPoint)) {
-                continue;
-            }
-
-            // process a new node
-            final Node neighborNode = new Node(neighborPoint, start, target, currentNode.depth() + 1);
-            neighborNode.setParentNode(currentNode);
+            final Point initialNeighborPoint = currentNode.point().add(offset);
+            final Node initialNeighborNode = new Node(initialNeighborPoint, start, target, currentNode.depth() + 1);
 
             // check if the step from the current node to the neighbor node is valid
-            final NodeEvaluationResult evaluationResult = options.nodeEvaluator().isValidMove(currentNode, neighborNode, mobContext, options);
+            // and if it is valid, check to see if a new node was found (due to the initial neighbor node being blocked)
+            final NodeEvaluationResult evaluationResult = options.nodeEvaluator().isValidMove(currentNode, initialNeighborNode, mobContext, options);
 
             // if the node isn't a valid move, we'll just skip it and continue to the next one
             if (evaluationResult.status() == NodeEvaluationResult.Status.INVALID_MOVE)
                 continue;
 
             // if the node is a valid move, then we have 2 possibilities:
-            // the neighbor node is accurate, they could just walk to the next point
-            // the neighbor node is blocked, but a new node was found, so this means that there was most likely a fall, step, jump, etc...
-            // we'll check for this and insert the correct node
-            final Node newNode = evaluationResult.newNode();
-            if (newNode == null) {
-                // the neighbor node is accurate, insert the neighbor node
-                insertNode(currentNode, neighborNode, pathfindingContext);
+            // the initial neighbor node was accurate, we will use this node (this means they could just walk to the next point)
+            // the initial neighbor node is blocked but a new node was found, this means that there was a fall, step, jump, etc...
+            final Node validNeighborNode = evaluationResult.newNode() == null ? initialNeighborNode : evaluationResult.newNode();
+            final Point neighborPoint = validNeighborNode.point();
+            final long packedPoint = RegionKey.pack(validNeighborNode.point());
 
-                if (options.isDebug()) {
-                    mobContext.instance().setBlock(neighborPoint.withY(neighborPoint.blockY() - 1), Block.GREEN_WOOL);
-                }
-            } else {
-                // the new node is accurate, insert the new node
-                newNode.setParentNode(currentNode);
-                insertNode(currentNode, newNode, pathfindingContext);
+            // check if the valid neighbor node is in the closed set
+            final SpatialData spatialData = getOrCreateSpatialData(neighborPoint, pathfindingContext);
+            if (spatialData.contains(neighborPoint, packedPoint)) {
+                continue;
             }
+
+            // check if the open set already contains our valid neighbor node
+            // if it is, then check if we can update the existing node with a better node
+            final Node existingNode = pathfindingContext.openSetNodes().get(packedPoint);
+            if (existingNode != null) {
+                updateExistingNode(existingNode, validNeighborNode, packedPoint, currentNode, pathfindingContext);
+                continue;
+            }
+
+            validNeighborNode.setParentNode(currentNode);
+            insertNode(currentNode, validNeighborNode, pathfindingContext);
+
+            if (options.isDebug())
+                mobContext.instance().setBlock(neighborPoint.withY(neighborPoint.blockY() - 1), Block.GREEN_WOOL);
         }
     }
 
@@ -268,29 +265,30 @@ public final class Pathfinder {
 
     // handles cases where we find an existing node that is not as optimal as a new node when pathing
     private void updateExistingNode(@NotNull Node existingNode,
+                                    @NotNull Node candidateNode,
                                     long packedPoint,
                                     @NotNull Node currentNode,
-                                    @NotNull MobContext mobContext,
                                     @NotNull PathfindingContext pathfindingContext) {
-        final double newG = options.costProcessor().calculateGCost(currentNode, existingNode);
-        final double tol = Math.ulp(Math.max(Math.abs(newG), Math.abs(existingNode.getG())));
-        if (newG + tol >= existingNode.getG()) {
+        // check to see if the candidate node has a lower cost than the existing node
+        final double newG = options.costProcessor().calculateGCost(currentNode, candidateNode);
+        final double oldG = existingNode.getG();
+        final double tol = Math.ulp(Math.max(Math.abs(newG), Math.abs(oldG)));
+        if (newG + tol >= oldG) {
             return;
         }
 
-        // check if it's a valid move
-        final NodeEvaluationResult evaluationResult = options.nodeEvaluator().isValidMove(currentNode, existingNode, mobContext, options);
-        if (evaluationResult.status() == NodeEvaluationResult.Status.INVALID_MOVE) {
-            return;
-        }
+        // the candidate node has a lower cost than the existing node
+        // use the candidate in place of the existing node
+        candidateNode.setParentNode(currentNode);
+        candidateNode.setG(newG);
 
-        existingNode.setParentNode(currentNode);
-        existingNode.setG(newG);
-
-        final double newKey = calculateHeapKey(existingNode, existingNode.getF());
+        final double newKey = calculateHeapKey(candidateNode, candidateNode.getF());
         final double oldKey = pathfindingContext.openSet().getCost(packedPoint);
 
-        // We only call the heap once the key actually decreased
+        // replace the node stored for this packed point with the better candidate node
+        pathfindingContext.openSetNodes().put(packedPoint, candidateNode);
+
+        // we only call the heap once the key actually decreased
         if (newKey + Math.ulp(newKey) < oldKey) {
             pathfindingContext.openSet().insertOrUpdate(packedPoint, newKey);
         } else if (Math.abs(newKey - oldKey) <= Math.ulp(newKey)) {

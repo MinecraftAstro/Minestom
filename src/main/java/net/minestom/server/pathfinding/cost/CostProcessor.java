@@ -11,7 +11,7 @@ public final class CostProcessor {
 
     // used to indicate that a move can not be taken at all
     // this is useful for avoiding blocks like lava, etc...
-    public static final double ILLEGAL_MOVE_COST = -1.0D;
+    public static final double ILLEGAL_MOVE_COST = Double.NEGATIVE_INFINITY;
 
     private final double walkCost;
     private final double fallCost;
@@ -44,10 +44,10 @@ public final class CostProcessor {
 
         final double g;
         switch (node.getType()) {
-            case FALL -> g = parentNode.getParentGCost() + fallCost + groundBlockCost;
-            case STEP -> g = parentNode.getParentGCost() + stepCost + groundBlockCost;
-            case JUMP -> g = parentNode.getParentGCost() + jumpCost + groundBlockCost;
-            default -> g = parentNode.getParentGCost() + walkCost + groundBlockCost;
+            case FALL -> g = parentNode.getG() + fallCost + groundBlockCost;
+            case STEP -> g = parentNode.getG() + stepCost + groundBlockCost;
+            case JUMP -> g = parentNode.getG() + jumpCost + groundBlockCost;
+            default -> g = parentNode.getG() + walkCost + groundBlockCost;
         }
 
         return g;

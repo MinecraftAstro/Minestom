@@ -2,7 +2,6 @@ package net.minestom.demo;
 
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.adventure.MinestomAdventure;
 import net.minestom.server.adventure.audience.Audiences;
@@ -11,7 +10,6 @@ import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.dialog.*;
 import net.minestom.server.entity.*;
-import net.minestom.server.entity.ai.navigation.PathNavigator;
 import net.minestom.server.entity.damage.Damage;
 import net.minestom.server.event.Event;
 import net.minestom.server.event.EventNode;
@@ -52,24 +50,6 @@ public class PlayerInit {
 
         MAIN_INSTANCE.setTime(12000L);
         MAIN_INSTANCE.setTimeRate(0);
-
-//        final EntityMob entityMob = new EntityMob(EntityType.PIG, PathNavigator.Type.GROUND);
-//
-//        entityMob.setInstance(MAIN_INSTANCE, new Pos(596, 83, -121)).thenAccept(_ -> {
-//            final Entity titleTag = new Entity(EntityType.ENDER_PEARL);
-//            titleTag.setCustomNameVisible(true);
-//            titleTag.set(DataComponents.CUSTOM_NAME, Component.text("NPC", NamedTextColor.GREEN));
-//
-//            entityMob.addPassenger(titleTag);
-//
-//            final Entity nameTag = new Entity(EntityType.ENDER_PEARL);
-//            nameTag.setCustomNameVisible(true);
-//            nameTag.set(DataComponents.CUSTOM_NAME, Component.text("Bob", NamedTextColor.GREEN));
-//
-//            titleTag.addPassenger(nameTag);
-//
-//            System.out.println(entityMob.getPassengers().size());
-//        });
     }
 
     private final EventNode<Event> DEMO_NODE = EventNode.all("demo")

@@ -189,6 +189,7 @@ public class Player extends LivingEntity implements CommandSender, HoverEventSou
 
     protected ClickPreprocessor clickPreprocessor = new ClickPreprocessor();
     protected PlayerInventory inventory;
+    @Nullable
     private AbstractInventory openInventory;
     // Used internally to allow the closing of inventory within the inventory listener
     private boolean didCloseInventory;
