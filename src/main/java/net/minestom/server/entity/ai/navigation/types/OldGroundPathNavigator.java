@@ -2,6 +2,7 @@ package net.minestom.server.entity.ai.navigation.types;
 
 import net.minestom.server.collision.CollisionUtils;
 import net.minestom.server.collision.PhysicsResult;
+import net.minestom.server.collision.Shape;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
@@ -13,10 +14,8 @@ import net.minestom.server.pathfinding.data.PathPoint;
 import net.minestom.server.utils.position.PositionUtils;
 import org.jetbrains.annotations.NotNull;
 
+// TODO: https://chatgpt.com/c/69dedcf6-c814-83ea-85e8-2cad0c2c2eed
 public final class OldGroundPathNavigator extends PathNavigator {
-
-    // TODO: mobs cant jump through an area that has a head hitter
-    // TODO: think like a jump into an area that has clearance for the mob but a block directly above their head
 
     // TODO: add stuck detection
 
@@ -108,23 +107,18 @@ public final class OldGroundPathNavigator extends PathNavigator {
     private void jumpTo(Point point,
                         Point nextPoint,
                         double movementSpeed) {
-        if (entityMob.isOnGround()) {
-            final Pos entityPosition = entityMob.getPosition();
-            final double heightDelta = point.y() - entityPosition.y();
-            if (heightDelta > VERTICAL_EPSILON) {
-                final double dx = getBlockCenterX(point) - entityPosition.x();
-                final double dz = getBlockCenterZ(point) - entityPosition.z();
-                final double distanceSquared = dx * dx + dz * dz;
-                if (distanceSquared <= JUMP_TRIGGER_DISTANCE_SQUARED) {
-                    final Vec velocity = entityMob.getVelocity();
-                    if (velocity.y() < JUMP_VERTICAL_SPEED) {
-                        entityMob.setVelocity(velocity.withY(JUMP_VERTICAL_SPEED));
-                    }
-                }
-            }
-        }
-
+        // move the entity towards the next point
         moveTo(point, nextPoint, movementSpeed, 0.0D);
+
+        // jump when the entity is on the ground
+        // this prevents "infinite" jumps, where the entity could ascend forever and never reach the next point
+        if (entityMob.isOnGround()) {
+            final Vec velocity = entityMob.getVelocity();
+            // Minestom uses blocks per second instead of Vanilla's blocks per tick
+            // 0.42 is the initial jump velocity of an entity in Vanilla
+            // this will give us the correct starting velocity for a jump: 0.42 * 20 = 8.4
+            entityMob.setVelocity(velocity.withY(8.4D));
+        }
     }
 
     private void moveTo(Point point,

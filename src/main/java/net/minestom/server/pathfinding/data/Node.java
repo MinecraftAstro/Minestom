@@ -70,10 +70,6 @@ public final class Node implements Comparable<Node> {
         this.parentNode = parentNode;
     }
 
-    public double getParentGCost() {
-        return parentNode == null ? 0.0D : parentNode.getG();
-    }
-
     public int depth() {
         return depth;
     }
@@ -88,13 +84,13 @@ public final class Node implements Comparable<Node> {
         return target;
     }
 
-    public void setGroundBlock(@Nullable Block groundBlock) {
-        this.groundBlock = groundBlock;
-    }
-
     @NotNull
     public Block getGroundBlock() {
         return groundBlock == null ? Block.AIR : groundBlock;
+    }
+
+    public void setGroundBlock(@Nullable Block groundBlock) {
+        this.groundBlock = groundBlock;
     }
 
     public void setType(@NotNull Type type) {
@@ -149,7 +145,7 @@ public final class Node implements Comparable<Node> {
     @Override
     public String toString() {
         return "Node{" +
-                "parent=" + (parentNode == null ? "null" : parentNode.point()) +
+                "groundBlock=" + getGroundBlock() +
                 ", g=" + g +
                 ", h=" + h +
                 ", f=" + getF() +

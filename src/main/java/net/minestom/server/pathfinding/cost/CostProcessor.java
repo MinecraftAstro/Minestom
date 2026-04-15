@@ -11,7 +11,7 @@ public final class CostProcessor {
 
     // used to indicate that a move can not be taken at all
     // this is useful for avoiding blocks like lava, etc...
-    public static final double ILLEGAL_MOVE_COST = Double.NEGATIVE_INFINITY;
+    public static final double ILLEGAL_MOVE_COST = Double.POSITIVE_INFINITY;
 
     private final double walkCost;
     private final double fallCost;
@@ -101,9 +101,7 @@ public final class CostProcessor {
         @NotNull
         public Builder groundBlockCost(@NotNull Block block, double cost) {
             Check.stateCondition(block.compare(Block.AIR, Block.Comparator.ID), "Update fall cost instead of assigning a cost to an AIR ground block.");
-
-            if (cost != CostProcessor.ILLEGAL_MOVE_COST)
-                Check.stateCondition(cost < 0.0D, "Ground block cost must be greater than or equal to 0.");
+            Check.stateCondition(cost < 0.0D, "Ground block cost must be greater than or equal to 0.");
 
             this.groundBlockCosts.put(block, cost);
             return this;

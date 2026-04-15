@@ -10,11 +10,14 @@ import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
 import net.minestom.server.dialog.*;
 import net.minestom.server.entity.*;
+import net.minestom.server.entity.attribute.Attribute;
 import net.minestom.server.entity.damage.Damage;
 import net.minestom.server.event.Event;
 import net.minestom.server.event.EventNode;
 import net.minestom.server.event.entity.EntityAttackEvent;
 import net.minestom.server.event.inventory.CreativeInventoryActionEvent;
+import net.minestom.server.event.inventory.InventoryClickEvent;
+import net.minestom.server.event.inventory.InventoryItemChangeEvent;
 import net.minestom.server.event.item.*;
 import net.minestom.server.event.player.*;
 import net.minestom.server.event.server.ServerTickMonitorEvent;
@@ -31,6 +34,7 @@ import net.minestom.server.item.Material;
 import net.minestom.server.monitoring.BenchmarkManager;
 import net.minestom.server.monitoring.TickMonitor;
 import net.minestom.server.sound.SoundEvent;
+import net.minestom.server.timer.TaskSchedule;
 import net.minestom.server.utils.MathUtils;
 import net.minestom.server.utils.time.TimeUnit;
 
@@ -93,10 +97,10 @@ public class PlayerInit {
 
                 event.setSpawningInstance(MAIN_INSTANCE);
 
-                //final Pos citySpawnPoint = new Pos(-100.5, 124, -45.5, -91.0f, 0.6f);
+                final Pos citySpawnPoint = new Pos(-100.5, 124, -45.5, -91.0f, 0.6f);
                 //final Pos waterSpawnPoint = new Pos(503, 63, -212);
-                final Pos mountainSpawnPoint = new Pos(595, 82, -121);
-                player.setRespawnPoint(mountainSpawnPoint);
+                //final Pos mountainSpawnPoint = new Pos(595, 82, -121);
+                player.setRespawnPoint(citySpawnPoint);
             })
             .addListener(PlayerSpawnEvent.class, event -> {
                 final Player player = event.getPlayer();

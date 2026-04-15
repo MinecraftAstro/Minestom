@@ -25,15 +25,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 // TODO: maybe support dynamic pathfinding in the future so we can adjust weights on the fly based on environmental factors, not needed right now though
 public final class Pathfinder {
 
-    // TODO: prevent NPEs by checking for invalid block/chunk access
-
     public static final Pathfinder DEFAULT_PATHFINDER = new Pathfinder(
             new PathfinderOptions.Builder()
                     .costProcessor(new CostProcessor.Builder()
                             .groundBlockCost(Block.LAVA, CostProcessor.ILLEGAL_MOVE_COST)
+                            .groundBlockCost(Block.ANDESITE, CostProcessor.ILLEGAL_MOVE_COST)
                             .build()
                     )
-                    .debug(true)
+                    .debug(false)
                     .build()
     );
 

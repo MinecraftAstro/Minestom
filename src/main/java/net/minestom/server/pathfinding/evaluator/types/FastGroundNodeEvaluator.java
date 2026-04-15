@@ -32,11 +32,8 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
 
     // TODO: fix the issue where the first iteration results in updated nodes?
     // TODO: make stairs step and not jump type
-    // TODO: cant pathfind in caves?
 
     // TODO: use mutable positions to avoid object churn
-
-    // TODO: prevent NPEs by checking for invalid block/chunk access
 
     @Override
     public @Nullable Node getValidStart(@NotNull MobContext mobContext,
@@ -62,9 +59,17 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         final Point newPoint = new Pos(newNode.point().centerBlockX(), newNode.point().y(), newNode.point().centerBlockZ());
         final Point belowNewPoint = newPoint.sub(0, 1, 0);
 
-        final Block oldBlock = mobContext.instance().getBlock(oldPoint, Block.Getter.Condition.TYPE);
-        final Block newBlock = mobContext.instance().getBlock(newPoint, Block.Getter.Condition.TYPE);
-        final Block belowNewBlock = mobContext.instance().getBlock(belowNewPoint, Block.Getter.Condition.TYPE);
+        // prevent NPEs caused by getting a block in an unloaded chunk
+        final Block oldBlock;
+        final Block newBlock;
+        final Block belowNewBlock;
+        try {
+            oldBlock = mobContext.instance().getBlock(oldPoint, Block.Getter.Condition.TYPE);
+            newBlock = mobContext.instance().getBlock(newPoint, Block.Getter.Condition.TYPE);
+            belowNewBlock = mobContext.instance().getBlock(belowNewPoint, Block.Getter.Condition.TYPE);
+        } catch (NullPointerException ignored) {
+            return new NodeEvaluationResult(NodeEvaluationResult.Status.INVALID_MOVE);
+        }
 
         final Shape oldBlockShape = oldBlock.registry().collisionShape();
         final Shape newBlockShape = newBlock.registry().collisionShape();
@@ -174,6 +179,8 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
         // check if there was any fall
         // if not, we don't have to update the node and they can just walk
         if (landingY == evaluationContext.newPoint().y()) {
+            // store the block below the new block for future cost processing
+            evaluationContext.newNode().setGroundBlock(evaluationContext.belowNewBlock());
             return new NodeEvaluationResult(NodeEvaluationResult.Status.VALID_MOVE);
         }
 
@@ -215,6 +222,7 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
             );
         }
 
+        fallNode.setGroundBlock(evaluationContext.instance().getBlock(fallNode.point(), Block.Getter.Condition.TYPE));
         return new NodeEvaluationResult(NodeEvaluationResult.Status.VALID_MOVE, fallNode);
     }
 
@@ -282,6 +290,7 @@ public final class FastGroundNodeEvaluator implements NodeEvaluator {
                     evaluationContext.newNode().depth() + 1
             );
             upwardsNode.setType(totalBlockHeight <= MAXIMUM_STEP_HEIGHT ? Node.Type.STEP : Node.Type.JUMP);
+            upwardsNode.setGroundBlock(evaluationContext.instance().getBlock(upwardsNode.point(), Block.Getter.Condition.TYPE));
 
             return new NodeEvaluationResult(NodeEvaluationResult.Status.VALID_MOVE, upwardsNode);
         }

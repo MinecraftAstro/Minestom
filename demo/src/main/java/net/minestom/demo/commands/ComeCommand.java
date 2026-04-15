@@ -1,5 +1,6 @@
 package net.minestom.demo.commands;
 
+import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.builder.Command;
 import net.minestom.server.command.builder.condition.Conditions;
 import net.minestom.server.entity.Entity;
@@ -9,6 +10,7 @@ import net.minestom.server.entity.attribute.Attribute;
 import net.minestom.server.instance.Instance;
 import net.minestom.server.pathfinding.data.Path;
 import net.minestom.server.pathfinding.utils.PathUtils;
+import net.minestom.server.timer.TaskSchedule;
 
 public class ComeCommand extends Command {
 

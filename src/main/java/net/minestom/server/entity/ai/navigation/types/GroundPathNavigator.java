@@ -4,6 +4,7 @@ import net.minestom.server.collision.CollisionUtils;
 import net.minestom.server.collision.PhysicsResult;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.EntityMob;
 import net.minestom.server.entity.ai.navigation.PathNavigator;
 import net.minestom.server.entity.attribute.Attribute;
@@ -46,16 +47,7 @@ public final class GroundPathNavigator extends PathNavigator {
         // this happens when the mob is close enough to the next path point
         PathPoint targetPathPoint = pathPoints.get(currentIndex);
         while (currentIndex < pathSize) {
-            final Pos entityPosition = entityMob.getPosition();
-
-            // TODO: we can avoid extra computation if we shared the result of targetX and targetZ with the movement functions
-            final Point targetPoint = targetPathPoint.point();
-            final double targetX = targetPoint.centerBlockX();
-            final double targetZ = targetPoint.centerBlockZ();
-
-            final double dx = targetX - entityPosition.x();
-            final double dz = targetZ - entityPosition.z();
-            final double distanceFromTarget = dx * dx + dz * dz;
+            final double distanceFromTarget = getDistanceFromTarget(targetPathPoint);
 
             // we aren't close enough to the target point to advance in the path points
             // we'll have to make the mob move closer to the target point and check again...
@@ -100,6 +92,36 @@ public final class GroundPathNavigator extends PathNavigator {
         }
     }
 
+    private double getDistanceFromTarget(PathPoint targetPathPoint) {
+        final Pos entityPosition = entityMob.getPosition();
+
+        // TODO: we can avoid extra computation if we shared the result of targetX and targetZ with the movement functions
+        final Point targetPoint = targetPathPoint.point();
+        final double targetX = targetPoint.centerBlockX();
+        final double targetZ = targetPoint.centerBlockZ();
+
+        final double dx = targetX - entityPosition.x();
+        final double dz = targetZ - entityPosition.z();
+
+        return dx * dx + dz * dz;
+    }
+
+    private void jumpTo(Point point,
+                        Point nextPoint) {
+        // move the entity towards the next point
+        moveTo(point, nextPoint);
+
+        // jump when the entity is on the ground
+        // this prevents "infinite" jumps, where the entity could ascend forever and never reach the next point
+        if (entityMob.isOnGround()) {
+            final Vec velocity = entityMob.getVelocity();
+            // Minestom uses blocks per second instead of Vanilla's blocks per tick
+            // 0.42 is the initial jump velocity of an entity in Vanilla
+            // this will give us the correct starting velocity for a jump: 0.42 * 20 = 8.4
+            entityMob.setVelocity(velocity.withY(8.4D));
+        }
+    }
+
     private void moveTo(@NotNull Point targetPoint,
                         @NotNull Point lookAtPoint) {
         final Pos entityPosition = entityMob.getPosition();
@@ -114,8 +136,9 @@ public final class GroundPathNavigator extends PathNavigator {
         final double dy = targetPoint.y() - entityPosition.y();
         final double dz = targetZ - entityPosition.z();
 
+        // TODO: this isnt vanilla, have an option?
         // get the direction that the entity should look towards
-        // this will be the difference between the look at point and the entity's current position
+        // this will be the difference between the point to look at and the entity's current position
         final double dxLook = lookAtX - entityPosition.x();
         final double dyLook = lookAtPoint.y() - entityPosition.y();
         final double dzLook = lookAtZ - entityPosition.z();
@@ -124,7 +147,7 @@ public final class GroundPathNavigator extends PathNavigator {
         final float pitch = PositionUtils.getLookPitch(dxLook, dyLook, dzLook);
 
         // actually move the entity with respect to physics
-        final PhysicsResult physicsResult = CollisionUtils.handlePhysics(entityMob, null);
+        final PhysicsResult physicsResult = CollisionUtils.handlePhysics(entityMob, new Vec(dx, 0, dz));
         entityMob.refreshPosition(physicsResult.newPosition().asPos().withView(yaw, pitch));
     }
 }
