@@ -42,7 +42,7 @@ final class ViewEngineUtils {
     private static void hideEntityFromPlayerInternal(Entity entity,
                                                      Player player,
                                                      boolean previousManualViewer) {
-        // we can't hide ourselves for ourselves...
+        // we can't hide ourself from ourself...
         if (player == entity) {
             return;
         }
@@ -136,6 +136,21 @@ final class ViewEngineUtils {
             final List<Integer> visiblePassengerIds = entry.getValue();
             player.sendPacket(new SetPassengersPacket(vehicleId, visiblePassengerIds));
         }
+    }
+
+    public static boolean canViewEntity(Entity entity,
+                                        Player player) {
+        // loop through and verify the player can see the entity and the entity's vehicles as well
+        Entity startingEntity = entity;
+        while (startingEntity != null) {
+            if (startingEntity.hasViewer(player)) {
+                startingEntity = startingEntity.getVehicle();
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

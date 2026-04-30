@@ -104,7 +104,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
             .build();
 
     // Certain entities should only have their position packets sent during synchronization
-    private static final Set<EntityType> SYNCHRONIZE_ONLY_ENTITIES = Set.of(EntityType.ITEM, EntityType.FALLING_BLOCK,
+    protected static final Set<EntityType> SYNCHRONIZE_ONLY_ENTITIES = Set.of(EntityType.ITEM, EntityType.FALLING_BLOCK,
             EntityType.ARROW, EntityType.SPECTRAL_ARROW, EntityType.TRIDENT, EntityType.LLAMA_SPIT, EntityType.WIND_CHARGE,
             EntityType.FISHING_BOBBER, EntityType.SNOWBALL, EntityType.EGG, EntityType.ENDER_PEARL, EntityType.SPLASH_POTION,
             EntityType.LINGERING_POTION, EntityType.EYE_OF_ENDER, EntityType.DRAGON_FIREBALL, EntityType.FIREBALL,
@@ -128,7 +128,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     protected BoundingBox boundingBox;
     @Nullable
-    private PhysicsResult previousPhysicsResult = null;
+    protected PhysicsResult previousPhysicsResult = null;
 
     @Nullable
     protected Entity vehicle;
@@ -140,7 +140,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     protected boolean collidesWithEntities = true;
     protected boolean preventBlockPlacement = true;
 
-    private Aerodynamics aerodynamics;
+    protected Aerodynamics aerodynamics;
     protected int gravityTickCount; // Number of tick where gravity tick was applied
 
     private final int id;
@@ -646,7 +646,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         boolean entityFlying = entityIsPlayer && ((Player) this).isFlying();
         final Block.Getter chunkCache = new ChunkCache(instance, currentChunk, Block.STONE);
         PhysicsResult physicsResult = PhysicsUtils.simulateMovement(position, velocity.div(ServerFlag.SERVER_TICKS_PER_SECOND), boundingBox,
-                instance.getWorldBorder(), chunkCache, aerodynamics, hasNoGravity(), hasPhysics, onGround, entityFlying, previousPhysicsResult);
+                instance.getWorldBorder(), chunkCache, aerodynamics, hasNoGravity(), hasPhysics, onGround, entityFlying, 0.6, previousPhysicsResult);
         this.previousPhysicsResult = physicsResult;
 
         Chunk finalChunk = ChunkUtils.retrieve(instance, currentChunk, physicsResult.newPosition());
@@ -1036,7 +1036,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      */
     public void addPassenger(Entity passenger) {
         final Instance currentInstance = this.instance;
-        Check.stateCondition(currentInstance == null, "You need to set an instance using Entity#setInstance");
+        Check.stateCondition(currentInstance == null, "Cannot add a passenger to an entity that is not in an instance, you need to set an instance using Entity#setInstance");
         Check.stateCondition(passenger == getVehicle(), "Cannot add the entity vehicle as a passenger");
 
         // if the passenger entity is already a passenger on another entity, then we must remove them as a passenger from that entity
@@ -1049,6 +1049,9 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         // i.e. when adding a passenger to a hidden entity, it would spawn in the world before it was marked as a passenger and the view engine would treat it as a normal entity, this is not correct behavior
         this.passengers.add(passenger);
         passenger.vehicle = this;
+
+        // make sure that the passenger respects the visibility rules of the vehicle entity
+        viewEngine.synchronizePassengerVisibility(passenger);
 
         // make sure that the passenger entity is in the correct instance as the vehicle
         // if not, then we'll need to set their instance to the vehicle's instance

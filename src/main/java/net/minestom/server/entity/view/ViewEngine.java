@@ -165,6 +165,19 @@ public final class ViewEngine {
         }
     }
 
+    public synchronized void synchronizePassengerVisibility(Entity entity) {
+        for (Player player : entity.getViewers()) {
+            if (ViewEngineUtils.canViewEntity(entity, player))
+                continue;
+
+            ViewEngineUtils.hideEntityFromPlayer(entity, player);
+        }
+
+        for (Entity passenger : entity.getPassengers()) {
+            synchronizePassengerVisibility(passenger);
+        }
+    }
+
     public synchronized void setViewableRule(Predicate<Player> viewableRule) {
         entityView.setViewableRule(viewableRule);
         entityView.setAutoViewable(false);
@@ -239,10 +252,13 @@ public final class ViewEngine {
     }
 
     public synchronized void handleTrackerAddition(Entity entity) {
+        // this ViewEngine is responsible for a player
         if (playerView != null) {
             ViewEngineUtils.showEntityToPlayer(entity, playerView.getPlayer());
         }
 
+        // this ViewEngine is responsible for an entity
+        // if the passed in entity is a player, then show this ViewEngine's entity to the passed in player
         if (entity instanceof Player player) {
             ViewEngineUtils.showEntityToPlayer(this.entity, player);
         }
@@ -275,7 +291,7 @@ public final class ViewEngine {
     private Collection<Player> getNearbyPlayers() {
         final TrackedLocation lastTrackedLocation = trackedLocation;
         if (lastTrackedLocation == null)
-            return Collections.emptyList();
+            return List.of();
 
         final Instance instance = lastTrackedLocation.instance();
         final Point point = lastTrackedLocation.point();
@@ -295,7 +311,7 @@ public final class ViewEngine {
     private Collection<Entity> getNearbyEntities() {
         final TrackedLocation lastTrackedLocation = trackedLocation;
         if (lastTrackedLocation == null)
-            return Collections.emptyList();
+            return List.of();
 
         final Instance instance = lastTrackedLocation.instance();
         final Point point = lastTrackedLocation.point();
