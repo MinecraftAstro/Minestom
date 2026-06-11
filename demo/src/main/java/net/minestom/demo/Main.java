@@ -67,6 +67,7 @@ public class Main {
         commandManager.register(new InventoryCommand());
         commandManager.register(new SweptIntersectionCommand());
         commandManager.register(new HeightmapCommand());
+        commandManager.register(new TestBiomeAmbientParticleCommand());
 
         MinecraftServer.getBlockManager().registerHandler("minecraft:stone", new Supplier<BlockHandler>() {
             @Override

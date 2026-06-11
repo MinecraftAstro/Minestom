@@ -27,8 +27,8 @@ public class ItemTest {
     @Test
     public void testFields(Env env) {
         var item = ItemStack.of(Material.DIAMOND_SWORD);
-        assertEquals(item.material(), Material.DIAMOND_SWORD, "Material must be the same");
-        assertEquals(item.amount(), 1, "Default item amount must be 1");
+        assertEquals(Material.DIAMOND_SWORD, item.material(), "Material must be the same");
+        assertEquals(1, item.amount(), "Default item amount must be 1");
 
         // Should have the exact same components as the material prototype
         var prototype = Material.DIAMOND_SWORD.registry().prototype();
@@ -45,15 +45,15 @@ public class ItemTest {
         assertThrows(UnsupportedOperationException.class, () -> finalItem.get(DataComponents.LORE).add(Component.text("Hey!")), "Lore list cannot be modified directly");
 
         item = item.withAmount(5);
-        assertEquals(item.amount(), 5, "Items with different amount should not be equals");
-        assertEquals(item.withAmount(amount -> amount * 2).amount(), 10, "Amount must be multiplied by 2");
+        assertEquals(5, item.amount(), "Items with different amount should not be equals");
+        assertEquals(10, item.withAmount(amount -> amount * 2).amount(), "Amount must be multiplied by 2");
     }
 
     @Test
     public void defaultBuilder(Env env) {
         var item = ItemStack.builder(Material.DIAMOND_SWORD).build();
-        assertEquals(item.material(), Material.DIAMOND_SWORD, "Material must be the same");
-        assertEquals(item.amount(), 1, "Default item amount must be 1");
+        assertEquals(Material.DIAMOND_SWORD, item.material(), "Material must be the same");
+        assertEquals(1, item.amount(), "Default item amount must be 1");
 
         // Should have the exact same components as the material prototype
         var prototype = Material.DIAMOND_SWORD.registry().prototype();
@@ -70,8 +70,8 @@ public class ItemTest {
         assertThrows(UnsupportedOperationException.class, () -> finalItem.get(DataComponents.LORE).add(Component.text("Hey!")), "Lore list cannot be modified directly");
 
         item = item.withAmount(5);
-        assertEquals(item.amount(), 5, "Items with different amount should not be equals");
-        assertEquals(item.withAmount(amount -> amount * 2).amount(), 10, "Amount must be multiplied by 2");
+        assertEquals(5, item.amount(), "Items with different amount should not be equals");
+        assertEquals(10, item.withAmount(amount -> amount * 2).amount(), "Amount must be multiplied by 2");
     }
 
     @Test
@@ -108,6 +108,17 @@ public class ItemTest {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text("Hey!"));
         var itemStack = ItemStack.of(Material.LAPIS_BLOCK).withLore(lore);
+        var itemStackLore = itemStack.get(DataComponents.LORE);
+        assertNotNull(itemStackLore);
+        assertEquals(lore, itemStackLore, "Lore list should have the same content");
+        assertThrows(UnsupportedOperationException.class, () -> itemStackLore.add(Component.text("Hey!")), "Should be immutable");
+    }
+
+    @Test
+    public void testBuilderImmutableLore(Env env) {
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("Hey!"));
+        var itemStack = ItemStack.builder(Material.LAPIS_BLOCK).lore(lore).build();
         var itemStackLore = itemStack.get(DataComponents.LORE);
         assertNotNull(itemStackLore);
         assertEquals(lore, itemStackLore, "Lore list should have the same content");

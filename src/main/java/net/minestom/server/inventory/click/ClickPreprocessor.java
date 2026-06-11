@@ -25,7 +25,7 @@ public final class ClickPreprocessor {
     }
 
     /**
-     * Determines whether or not a click is creative only. This should match client behaviour, including edge cases like
+     * Determines whether a click is creative only. This should match client behavior, including edge cases like
      * middle clicks (item clones) being sent in survival when there is an item in the cursor (which would make it a
      * no-op), hence the parameter. This function can be overridden if modifying the creative check logic is desired,
      * since {@link net.minestom.server.listener.WindowListener} directly depends on this.

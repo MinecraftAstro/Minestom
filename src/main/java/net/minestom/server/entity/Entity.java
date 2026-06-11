@@ -135,7 +135,6 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
 
     // Velocity
     protected Vec velocity = Vec.ZERO; // Movement in block per second
-    protected boolean lastVelocityWasZero = true;
     protected boolean hasPhysics = true;
     protected boolean collidesWithEntities = true;
     protected boolean preventBlockPlacement = true;
@@ -194,7 +193,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     private long synchronizationTicks = ServerFlag.ENTITY_SYNCHRONIZATION_TICKS;
     private long nextSynchronizationTick = synchronizationTicks;
 
-    protected MetadataHolder metadata = new MetadataHolder(this);
+    protected MetadataHolder metadata = new MetadataHolder(this::notifyMetadataChanges);
     protected EntityMeta entityMeta;
 
     private final List<TimedPotion> effects = new CopyOnWriteArrayList<>();
@@ -257,7 +256,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      *
      * @param callback the task to execute during the next entity tick
      */
-    public void scheduleNextTick(Consumer<Entity> callback) {
+    public void scheduleNextTick(Consumer<? super Entity> callback) {
         this.scheduler.scheduleNextTick(() -> callback.accept(this));
     }
 
@@ -626,9 +625,14 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         }
 
         // Scheduled synchronization
-        if (vehicle == null && ticks >= nextSynchronizationTick) {
-            synchronizePosition();
-            sendPacketToViewers(getVelocityPacket());
+        if (ticks >= nextSynchronizationTick) {
+            if (vehicle == null) {
+                synchronizePosition();
+                sendPacketToViewers(getVelocityPacket());
+            } else {
+                synchronizeView();
+                nextSynchronizationTick = ticks + synchronizationTicks;
+            }
         }
 
         // End of tick scheduled tasks
@@ -646,7 +650,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         boolean entityFlying = entityIsPlayer && ((Player) this).isFlying();
         final Block.Getter chunkCache = new ChunkCache(instance, currentChunk, Block.STONE);
         PhysicsResult physicsResult = PhysicsUtils.simulateMovement(position, velocity.div(ServerFlag.SERVER_TICKS_PER_SECOND), boundingBox,
-                instance.getWorldBorder(), chunkCache, aerodynamics, hasNoGravity(), hasPhysics, onGround, entityFlying, 0.6, previousPhysicsResult);
+                instance.getWorldBorder(), chunkCache, aerodynamics, hasNoGravity(), hasPhysics, onGround, entityFlying, previousPhysicsResult);
         this.previousPhysicsResult = physicsResult;
 
         Chunk finalChunk = ChunkUtils.retrieve(instance, currentChunk, physicsResult.newPosition());
@@ -868,7 +872,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         this.instance = instance;
         return instance.loadOptionalChunk(spawnPosition).thenAccept(chunk -> {
             try {
-                Check.notNull(chunk, "Entity has been placed in an unloaded chunk!");
+                Objects.requireNonNull(chunk, "Entity has been placed in an unloaded chunk!");
                 refreshCurrentChunk(chunk);
                 if (this instanceof Player player) {
                     player.sendPacket(instance.createInitializeWorldBorderPacket());
@@ -1358,6 +1362,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
     public void refreshPosition(final Pos newPosition, boolean ignoreView, boolean sendPackets) {
         final var previousPosition = this.position;
         final Pos position = ignoreView ? previousPosition.withCoord(newPosition) : newPosition;
+        final Pos lastSyncedPosition = this.lastSyncedPosition;
         if (position.equals(lastSyncedPosition)) return;
         setPositionInternal(position, ignoreView ? headRotation : position.yaw());
         this.previousPosition = previousPosition;
@@ -1702,6 +1707,12 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         return new EntityMetaDataPacket(getEntityId(), metadata.getEntries());
     }
 
+    // Currently file-private so it can be used in MetadataHolder, planned to be private.
+    void notifyMetadataChanges(Map<Integer, Metadata.Entry<?>> changes) {
+        if (!isActive()) return;
+        sendPacketToViewersAndSelf(new EntityMetaDataPacket(getEntityId(), changes));
+    }
+
     /**
      * Used to synchronize entity position with viewers by sending a full
      * {@link EntityPositionSyncPacket} to viewers.
@@ -1715,7 +1726,12 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
         this.lastSyncedPosition = posCache;
     }
 
-    private void synchronizeView() {
+    /**
+     * Used to synchronize the head position and rotation of the entity
+     */
+    @ApiStatus.Internal
+    protected void synchronizeView() {
+        final Pos position = this.position;
         sendPacketToViewers(new EntityHeadLookPacket(getEntityId(), headRotation));
         sendPacketToViewers(new EntityRotationPacket(getEntityId(), position.yaw(), position.pitch(), onGround));
     }
@@ -1859,7 +1875,7 @@ public class Entity implements Viewable, Tickable, Schedulable, Snapshotable, Ev
      * @param predicate optional predicate
      * @return resulting entity whether there're any, null otherwise.
      */
-    public @Nullable Entity getLineOfSightEntity(double range, Predicate<Entity> predicate) {
+    public @Nullable Entity getLineOfSightEntity(double range, Predicate<? super Entity> predicate) {
         Instance instance = getInstance();
         if (instance == null) {
             return null;
