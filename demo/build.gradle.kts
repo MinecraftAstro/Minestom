@@ -1,7 +1,9 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import java.io.File
 
 plugins {
     id("minestom.java-binary")
+    id("com.gradleup.shadow") version "9.4.2"
 }
 
 dependencies {
@@ -12,10 +14,9 @@ dependencies {
 
 application {
     mainClass.set("net.minestom.demo.Main")
-}
+    mainModule.set("net.minestom.demo")
 
-tasks.withType<ShadowJar> {
-    archiveFileName.set("minestom-demo.jar")
+    applicationDefaultJvmArgs += "-ea"
 }
 
 val deployJar by tasks.registering(Copy::class) {

@@ -22,6 +22,8 @@ import net.minestom.server.event.item.*;
 import net.minestom.server.event.player.*;
 import net.minestom.server.event.server.ServerTickMonitorEvent;
 import net.minestom.server.instance.Instance;
+import net.minestom.server.instance.InstanceContainer;
+import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.LightingChunk;
 import net.minestom.server.instance.anvil.AnvilLoader;
 import net.minestom.server.instance.block.Block;
@@ -53,7 +55,7 @@ public class PlayerInit {
         MAIN_INSTANCE.setChunkSupplier(LightingChunk::new);
 
         MAIN_INSTANCE.setTime(12000L);
-        MAIN_INSTANCE.setTimeRate(0);
+        MAIN_INSTANCE.setTime(0);
     }
 
     private final EventNode<Event> DEMO_NODE = EventNode.all("demo")
@@ -63,8 +65,7 @@ public class PlayerInit {
 
                 entity.takeKnockback(0.4f, Math.sin(source.getPosition().yaw() * 0.017453292), -Math.cos(source.getPosition().yaw() * 0.017453292));
 
-                if (entity instanceof Player) {
-                    Player target = (Player) entity;
+                if (entity instanceof Player target) {
                     target.damage(Damage.fromEntity(source, 5));
                 }
 
@@ -196,7 +197,6 @@ public class PlayerInit {
                     player.setItemInHand(event.getHand(), itemStack.without(DataComponents.CHARGED_PROJECTILES));
                     event.getPlayer().sendMessage("pew pew!");
                     event.setItemUseDuration(0); // Do not start using the item
-                    return;
                 }
             })
             .addListener(PlayerFinishItemUseEvent.class, event -> {
@@ -209,7 +209,6 @@ public class PlayerInit {
                 final ItemStack itemStack = event.getItemStack();
                 if (itemStack.material() == Material.CROSSBOW && event.getUseDuration() > 25) {
                     player.setItemInHand(event.getHand(), itemStack.with(DataComponents.CHARGED_PROJECTILES, List.of(ItemStack.of(Material.ARROW))));
-                    return;
                 }
             })
             .addListener(PlayerBlockInteractEvent.class, event -> {
@@ -244,14 +243,28 @@ public class PlayerInit {
                         .forEach(comp -> event.getPlayer().sendMessage(comp));
             });
 
+    {
+        InstanceManager instanceManager = MinecraftServer.getInstanceManager();
+
+        InstanceContainer instanceContainer = instanceManager.createInstanceContainer();
+        instanceContainer.setGenerator(unit -> {
+            unit.modifier().fillHeight(0, 40, Block.STONE);
+
+            if (unit.absoluteStart().blockY() < 40 && unit.absoluteEnd().blockY() > 40) {
+                unit.modifier().setBlock(unit.absoluteStart().blockX(), 40, unit.absoluteStart().blockZ(), Block.TORCH);
+            }
+        });
+        instanceContainer.setChunkSupplier(LightingChunk::new);
+
+        var defaultClock = instanceContainer.defaultClock();
+        defaultClock.rate(4f);
+    }
+
     private final AtomicReference<TickMonitor> LAST_TICK = new AtomicReference<>();
 
     public void init() {
         var eventHandler = MinecraftServer.getGlobalEventHandler();
         eventHandler.addChild(DEMO_NODE);
-
-        MinestomAdventure.AUTOMATIC_COMPONENT_TRANSLATION = true;
-        MinestomAdventure.COMPONENT_TRANSLATOR = (c, l) -> c;
 
         eventHandler.addListener(ServerTickMonitorEvent.class, event -> LAST_TICK.set(event.getTickMonitor()));
 

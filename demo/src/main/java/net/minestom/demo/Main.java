@@ -63,6 +63,7 @@ public class Main {
         commandManager.register(new InventoryCommand());
         commandManager.register(new SweptIntersectionCommand());
         commandManager.register(new HeightmapCommand());
+        commandManager.register(new TestBiomeAmbientParticleCommand());
 
         commandManager.setUnknownCommandCallback((sender, command) -> sender.sendMessage(Component.text("Unknown command", NamedTextColor.RED)));
 
