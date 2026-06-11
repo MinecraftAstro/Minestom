@@ -3,8 +3,11 @@ package net.minestom.server.entity;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.sound.Sound.Source;
+import net.minestom.server.ServerFlag;
 import net.minestom.server.adventure.AdventurePacketConvertor;
 import net.minestom.server.collision.BoundingBox;
+import net.minestom.server.collision.PhysicsResult;
+import net.minestom.server.collision.PhysicsUtils;
 import net.minestom.server.component.DataComponents;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
@@ -24,7 +27,9 @@ import net.minestom.server.event.entity.EntityFireExtinguishEvent;
 import net.minestom.server.event.entity.EntitySetFireEvent;
 import net.minestom.server.event.item.EntityEquipEvent;
 import net.minestom.server.event.item.PickupItemEvent;
+import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.EntityTracker;
+import net.minestom.server.instance.block.Block;
 import net.minestom.server.inventory.EquipmentHandler;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.component.AttributeList;
@@ -39,6 +44,8 @@ import net.minestom.server.scoreboard.Team;
 import net.minestom.server.sound.SoundEvent;
 import net.minestom.server.thread.Acquirable;
 import net.minestom.server.utils.block.BlockIterator;
+import net.minestom.server.utils.chunk.ChunkCache;
+import net.minestom.server.utils.chunk.ChunkUtils;
 import net.minestom.server.utils.time.Cooldown;
 import net.minestom.server.utils.time.TimeUnit;
 import org.jetbrains.annotations.ApiStatus;
@@ -108,6 +115,30 @@ public class LivingEntity extends Entity implements EquipmentHandler {
 
     public LivingEntity(EntityType entityType) {
         this(entityType, UUID.randomUUID());
+    }
+
+    @Override
+    protected void movementTick() {
+        this.gravityTickCount = onGround ? 0 : gravityTickCount + 1;
+
+        // vehicles handle the passengers movement
+        if (vehicle != null) return;
+
+        boolean entityIsPlayer = this instanceof Player;
+        boolean entityFlying = entityIsPlayer && ((Player) this).isFlying();
+        final Block.Getter chunkCache = new ChunkCache(instance, currentChunk, Block.STONE);
+        PhysicsResult physicsResult = PhysicsUtils.simulateMovement(position, velocity.div(ServerFlag.SERVER_TICKS_PER_SECOND), boundingBox,
+                instance.getWorldBorder(), chunkCache, aerodynamics, hasNoGravity(), hasPhysics, onGround, entityFlying, getAttributeValue(Attribute.STEP_HEIGHT), previousPhysicsResult);
+        this.previousPhysicsResult = physicsResult;
+
+        Chunk finalChunk = ChunkUtils.retrieve(instance, currentChunk, physicsResult.newPosition());
+        if (!ChunkUtils.isLoaded(finalChunk)) return;
+
+        velocity = physicsResult.newVelocity().mul(ServerFlag.SERVER_TICKS_PER_SECOND);
+        if (!(this instanceof Player)) {
+            onGround = physicsResult.isOnGround();
+            refreshPosition(physicsResult.newPosition(), true, !SYNCHRONIZE_ONLY_ENTITIES.contains(entityType));
+        }
     }
 
     @Override

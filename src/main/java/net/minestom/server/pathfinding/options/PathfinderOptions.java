@@ -1,8 +1,7 @@
 package net.minestom.server.pathfinding.options;
 
 import net.minestom.server.coordinate.Vec;
-import net.minestom.server.pathfinding.cost.CostProcessor;
-import net.minestom.server.pathfinding.evaluator.types.FastGroundNodeEvaluator;
+import net.minestom.server.pathfinding.evaluator.types.GroundNodeEvaluator;
 import net.minestom.server.pathfinding.movement.MovementStrategies;
 import net.minestom.server.pathfinding.evaluator.NodeEvaluator;
 import net.minestom.server.utils.validate.Check;
@@ -17,7 +16,6 @@ public final class PathfinderOptions {
     private final boolean async;
     private final Collection<Vec> movementStrategy;
     private final NodeEvaluator nodeEvaluator;
-    private final CostProcessor costProcessor;
     // 0 max iterations indicates that there is no max iterations for paths
     private final int maxIterations;
     // 0 max length indicates that there is no max length for paths
@@ -29,7 +27,7 @@ public final class PathfinderOptions {
     private final boolean bestEffortOnFailure;
     private final boolean bestEffortOnCancel;
 
-    // TODO: this can be removed when Mode's chunk batch PR gets pushed (it never will)
+    // TODO: this can be removed when Mode's chunk batch PR gets pushed
     private final boolean autoLoadChunks;
 
     private final boolean debug;
@@ -37,7 +35,6 @@ public final class PathfinderOptions {
     private PathfinderOptions(boolean async,
                               @NotNull Collection<Vec> movementStrategy,
                               @NotNull NodeEvaluator nodeEvaluator,
-                              @NotNull CostProcessor costProcessor,
                               int maxIterations,
                               int maxLength,
                               int bloomFilterSize,
@@ -49,7 +46,6 @@ public final class PathfinderOptions {
         this.async = async;
         this.movementStrategy = movementStrategy;
         this.nodeEvaluator = nodeEvaluator;
-        this.costProcessor = costProcessor;
         Check.stateCondition(maxIterations < 0, "Pathfinding max iterations must be greater than or equal to 0.");
         this.maxIterations = maxIterations;
         Check.stateCondition(maxLength < 0, "Pathfinding max length must be greater than or equal to 0.");
@@ -75,11 +71,6 @@ public final class PathfinderOptions {
     @NotNull
     public NodeEvaluator nodeEvaluator() {
         return nodeEvaluator;
-    }
-
-    @NotNull
-    public CostProcessor costProcessor() {
-        return costProcessor;
     }
 
     public int maxIterations() {
@@ -119,7 +110,6 @@ public final class PathfinderOptions {
         private boolean async;
         private Collection<Vec> movementStrategy;
         private NodeEvaluator nodeEvaluator;
-        private CostProcessor costProcessor;
         private int maxIterations;
         private int maxLength;
 
@@ -136,11 +126,9 @@ public final class PathfinderOptions {
         public Builder() {
             this.async = false;
             this.movementStrategy = MovementStrategies.BASIC_AND_DIAGONAL;
-            this.nodeEvaluator = new FastGroundNodeEvaluator();
-            this.costProcessor = new CostProcessor.Builder()
-                    .build();
-            this.maxIterations = 50_000;
-            this.maxLength = 500;
+            this.nodeEvaluator = new GroundNodeEvaluator();
+            this.maxIterations = 500_000_000;
+            this.maxLength = 5_000;
             this.bloomFilterSize = 1024;
             this.bloomFilterFpp = 0.01D;
             this.bestEffortOnFailure = true;
@@ -164,12 +152,6 @@ public final class PathfinderOptions {
         @NotNull
         public Builder nodeEvaluator(@NotNull NodeEvaluator nodeEvaluator) {
             this.nodeEvaluator = nodeEvaluator;
-            return this;
-        }
-
-        @NotNull
-        public Builder costProcessor(@NotNull CostProcessor costProcessor) {
-            this.costProcessor = costProcessor;
             return this;
         }
 
@@ -227,7 +209,6 @@ public final class PathfinderOptions {
                     async,
                     List.copyOf(movementStrategy),
                     nodeEvaluator,
-                    costProcessor,
                     maxIterations,
                     maxLength,
                     bloomFilterSize,

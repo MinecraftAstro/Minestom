@@ -1,5 +1,6 @@
 package net.minestom.demo;
 
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minestom.demo.commands.*;
@@ -7,6 +8,9 @@ import net.minestom.server.Auth;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.CommandManager;
 import net.minestom.server.event.player.*;
+import net.minestom.server.instance.block.BlockHandler;
+
+import java.util.function.Supplier;
 
 public class Main {
 
@@ -63,6 +67,25 @@ public class Main {
         commandManager.register(new InventoryCommand());
         commandManager.register(new SweptIntersectionCommand());
         commandManager.register(new HeightmapCommand());
+
+        MinecraftServer.getBlockManager().registerHandler("minecraft:stone", new Supplier<BlockHandler>() {
+            @Override
+            public BlockHandler get() {
+                return new BlockHandler() {
+
+                    @Override
+                    public boolean onInteract(Interaction interaction) {
+                        System.out.println("Interacted with block!");
+                        return true;
+                    }
+
+                    @Override
+                    public Key getKey() {
+                        return Key.key("minecraft", "stone");
+                    }
+                };
+            }
+        });
 
         commandManager.setUnknownCommandCallback((sender, command) -> sender.sendMessage(Component.text("Unknown command", NamedTextColor.RED)));
 

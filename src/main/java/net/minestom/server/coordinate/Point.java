@@ -297,6 +297,23 @@ public sealed interface Point permits Vec, Pos, BlockVec {
     }
 
     @Contract(pure = true)
+    default double octileDistance(Point point) {
+        final double dx = Math.abs(blockX() - point.blockX());
+        final double dy = Math.abs(blockY() - point.blockY());
+        final double dz = Math.abs(blockZ() - point.blockZ());
+
+        final double smallest = Math.min(Math.min(dx, dz), dy);
+        final double highest = Math.max(Math.max(dx, dz), dy);
+        final double mid = Math.max(Math.min(dx, dz), Math.min(Math.max(dx, dz), dy));
+
+        final double D1 = 1.0D;
+        final double D2 = 1.4142135623730951D;
+        final double D3 = 1.7320508075688772D;
+
+        return (D3 - D2) * smallest + (D2 - D1) * mid + D1 * highest;
+    }
+
+    @Contract(pure = true)
     default double chebyshevDistance(double x, double y, double z) {
         return Math.max(Math.abs(x() - x), Math.max(Math.abs(y() - y), Math.abs(z() - z)));
     }

@@ -43,8 +43,9 @@ public final class EntityView {
 
     /**
      * Gets the manual viewers for this entity.
-     * Manual viewers will always be able to see this entity until they are removed from this collection.
-     * That means that even when a player leaves view-distance, they will still be able to "see" this entity.
+     * <br>
+     * Manual viewers will always be able to see this entity (unless it's hidden due to it being a passenger of a hidden entity) until
+     * they are removed from this collection.
      *
      * @return the set of manual viewers
      */

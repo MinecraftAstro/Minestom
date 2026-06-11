@@ -135,6 +135,7 @@ final class BlockCollision {
 
             // If all axis have had collisions, break
             if (foundCollisionX && foundCollisionY && foundCollisionZ) break;
+
             // If the entity isn't moving, break
             if (result.newVelocity().isZero()) break;
 

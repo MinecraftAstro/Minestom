@@ -3,12 +3,11 @@ package net.minestom.server.pathfinding;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minestom.server.coordinate.Point;
+import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
-import net.minestom.server.instance.block.Block;
 import net.minestom.server.pathfinding.collections.BinaryMinimumHeap;
 import net.minestom.server.pathfinding.context.MobContext;
 import net.minestom.server.pathfinding.context.PathfindingContext;
-import net.minestom.server.pathfinding.cost.CostProcessor;
 import net.minestom.server.pathfinding.data.*;
 import net.minestom.server.pathfinding.evaluator.result.NodeEvaluationResult;
 import net.minestom.server.pathfinding.options.PathfinderOptions;
@@ -16,7 +15,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -27,12 +25,7 @@ public final class Pathfinder {
 
     public static final Pathfinder DEFAULT_PATHFINDER = new Pathfinder(
             new PathfinderOptions.Builder()
-                    .costProcessor(new CostProcessor.Builder()
-                            .groundBlockCost(Block.LAVA, CostProcessor.ILLEGAL_MOVE_COST)
-                            .groundBlockCost(Block.ANDESITE, CostProcessor.ILLEGAL_MOVE_COST)
-                            .build()
-                    )
-                    .debug(false)
+                    .autoLoadChunks(true)
                     .build()
     );
 
@@ -55,6 +48,10 @@ public final class Pathfinder {
         } else {
             return CompletableFuture.completedFuture(evaluatePath(start, target, mobContext, completionRange, cancelFlag));
         }
+    }
+
+    public PathfinderOptions getOptions() {
+        return options;
     }
 
     @NotNull
@@ -118,7 +115,7 @@ public final class Pathfinder {
             }
 
             // check if we have finished pathfinding (i.e. are we close enough to the target point)
-            if (currentNode.point().manhattanDistance(target) <= completionRange) {
+            if (currentNode.point().octileDistance(target) <= completionRange) {
                 return reconstructPath(start, target, currentNode, false);
             }
 
@@ -144,16 +141,16 @@ public final class Pathfinder {
                                  boolean bestEffort) {
         if (endNode.getParentNode() == null && endNode.depth() == 0) {
             // the end node was the start node, so no movement really happens but the path is "found"
-            return new Path(Path.State.FOUND, Collections.singletonList(new PathPoint(endNode.point(), endNode.getType())), start, target);
+            return new Path(Path.State.FOUND, Collections.singletonList(endNode.point()), start, target);
         }
 
         // reconstruct the path by tracing through the nodes that were taken
         final List<Node> debugNodes = new ArrayList<>();
-        final List<PathPoint> pathPoints = new ArrayList<>();
+        final List<Point> points = new ArrayList<>();
         Node currentNode = endNode;
         while (currentNode != null) {
             debugNodes.add(currentNode);
-            pathPoints.add(new PathPoint(currentNode.point(), currentNode.getType()));
+            points.add(currentNode.point());
             currentNode = currentNode.getParentNode();
         }
 
@@ -162,8 +159,8 @@ public final class Pathfinder {
             System.out.println(node);
         }
 
-        Collections.reverse(pathPoints);
-        return new Path(bestEffort ? Path.State.BEST_EFFORT : Path.State.FOUND, pathPoints, start, target);
+        Collections.reverse(points);
+        return new Path(bestEffort ? Path.State.BEST_EFFORT : Path.State.FOUND, points, start, target);
     }
 
     private void processNeighbors(@NotNull Point start,
@@ -172,7 +169,9 @@ public final class Pathfinder {
                                   @NotNull PathfindingContext pathfindingContext,
                                   @NotNull MobContext mobContext) {
         for (Vec offset : options.movementStrategy()) {
-            final Point initialNeighborPoint = currentNode.point().add(offset);
+            final double centeredX = currentNode.point().centerBlockX();
+            final double centeredZ = currentNode.point().centerBlockZ();
+            final Point initialNeighborPoint = new Pos(centeredX, currentNode.point().y(), centeredZ).add(offset);
             final Node initialNeighborNode = new Node(initialNeighborPoint, start, target, currentNode.depth() + 1);
 
             // check if the step from the current node to the neighbor node is valid
@@ -206,9 +205,6 @@ public final class Pathfinder {
 
             validNeighborNode.setParentNode(currentNode);
             insertNode(currentNode, validNeighborNode, pathfindingContext);
-
-            if (options.isDebug())
-                mobContext.instance().setBlock(neighborPoint.withY(neighborPoint.blockY() - 1), Block.GREEN_WOOL);
         }
     }
 
@@ -234,7 +230,7 @@ public final class Pathfinder {
                             @NotNull PathfindingContext pathfindingContext) {
         if (parentNode != null) {
             // this will not be a start node, so we'll need to do some cost processing for the new node
-            newNode.setG(options.costProcessor().calculateGCost(parentNode, newNode));
+            newNode.setG(calculateGCost(parentNode, newNode));
         }
 
         final double heapKey = calculateHeapKey(newNode, newNode.getF());
@@ -269,7 +265,7 @@ public final class Pathfinder {
                                     @NotNull Node currentNode,
                                     @NotNull PathfindingContext pathfindingContext) {
         // check to see if the candidate node has a lower cost than the existing node
-        final double newG = options.costProcessor().calculateGCost(currentNode, candidateNode);
+        final double newG = calculateGCost(currentNode, candidateNode);
         final double oldG = existingNode.getG();
         final double tol = Math.ulp(Math.max(Math.abs(newG), Math.abs(oldG)));
         if (newG + tol >= oldG) {
@@ -314,5 +310,15 @@ public final class Pathfinder {
 
         return pathfindingContext.visitedRegions().computeIfAbsent(regionKey,
                 (long _) -> new SpatialData(options));
+    }
+
+    private double calculateGCost(@NotNull Node parentNode,
+                                  @NotNull Node node) {
+        // penalize diagonal moves according to the Octile distance of sqrt(2) = 1.41421356237
+        final Point direction = node.point().sub(parentNode.point());
+        final double movementCost = (Math.abs(direction.blockX()) == Math.abs(direction.blockZ())) ? 1.4142135623730951D : 1.0D;
+
+        // TODO: node type penalty
+        return parentNode.getG() + movementCost;
     }
 }

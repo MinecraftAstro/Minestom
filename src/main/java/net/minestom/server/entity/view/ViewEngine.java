@@ -50,12 +50,10 @@ public final class ViewEngine {
     }
 
     /**
-     * Manually adds a viewer to this entity. The {@link Player} will always be able to view this entity
-     * even if the viewable/viewer rules change or if the player goes out of render distance. The only way
-     * to remove a manual viewer is to use {@link #removeManualViewer(Player)}
+     * Adds a viewer to this entity that will not need to meet the viewable/viewer rules.
      *
-     * @param player the player to add as a manual viewer
-     * @return true if the player was added as a manual viewer, false if not
+     * @param player the player to add as a viewer
+     * @return true if the player was added as a viewer, false if not
      */
     public boolean addManualViewer(Player player) {
         if (player == entity)
@@ -74,11 +72,11 @@ public final class ViewEngine {
     }
 
     /**
-     * Manually removes a viewer from this entity. This does not hide the entity automatically, it only removes the {@link Player}
-     * as a manual viewer and makes them adhere to the viewable/viewer rules.
+     * Removes a viewer from this entity. This does not hide the entity automatically, it only makes the {@link Player}
+     * adhere to the viewable/viewer rules.
      *
-     * @param player the player to remove as a manual viewer
-     * @return true if the player was removed as a manual viewer, false if not
+     * @param player the player to remove as a viewer
+     * @return true if the player was removed as a viewer, false if not
      */
     public boolean removeManualViewer(Player player) {
         if (player == entity)

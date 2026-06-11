@@ -1,8 +1,5 @@
 package net.minestom.server.entity.ai.navigation.types;
 
-import net.minestom.server.collision.CollisionUtils;
-import net.minestom.server.collision.PhysicsResult;
-import net.minestom.server.collision.Shape;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
@@ -10,7 +7,6 @@ import net.minestom.server.entity.EntityMob;
 import net.minestom.server.entity.ai.navigation.PathNavigator;
 import net.minestom.server.entity.attribute.Attribute;
 import net.minestom.server.pathfinding.Pathfinder;
-import net.minestom.server.pathfinding.data.PathPoint;
 import net.minestom.server.utils.position.PositionUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -41,7 +37,7 @@ public final class OldGroundPathNavigator extends PathNavigator {
     @Override
     public void navigatePath() {
         // can't navigate an empty path
-        if (pathPoints.isEmpty())
+        if (points.isEmpty())
             return;
 
         final double movementSpeed = entityMob.getAttributeValue(Attribute.MOVEMENT_SPEED);
@@ -51,24 +47,25 @@ public final class OldGroundPathNavigator extends PathNavigator {
 
         advancePathIndex(movementSpeed);
 
-        final PathPoint pathPoint = pathPoints.get(currentIndex);
-        final PathPoint nextPathPoint;
-        if (currentIndex >= pathPoints.size() - 1) {
-            nextPathPoint = pathPoint;
+        // TODO: load point and nextPoint if the chunks are unloaded but autoLoadChunks is enabled
+        final Point point = points.get(currentIndex);
+        final Point nextPoint;
+        if (currentIndex >= points.size() - 1) {
+            nextPoint = point;
         } else {
-            nextPathPoint = pathPoints.get(currentIndex + 1);
+            nextPoint = points.get(currentIndex + 1);
         }
 
-        handleMove(pathPoint, nextPathPoint, movementSpeed);
+        moveTo(point, nextPoint, movementSpeed, 0.0D);
     }
 
     private void advancePathIndex(double movementSpeed) {
         final double waypointRange = Math.max(movementSpeed, MIN_WAYPOINT_RANGE);
         final double waypointRangeSquared = waypointRange * waypointRange;
 
-        while (currentIndex < pathPoints.size() - 1) {
+        while (currentIndex < points.size() - 1) {
             final Pos entityPosition = entityMob.getPosition();
-            final Point currentPoint = pathPoints.get(currentIndex).point();
+            final Point currentPoint = points.get(currentIndex);
             final double targetX = getBlockCenterX(currentPoint);
             final double targetZ = getBlockCenterZ(currentPoint);
 
@@ -81,27 +78,6 @@ public final class OldGroundPathNavigator extends PathNavigator {
 
             currentIndex++;
         }
-    }
-
-    private void handleMove(PathPoint pathPoint,
-                            PathPoint nextPathPoint,
-                            double movementSpeed) {
-        switch (pathPoint.type()) {
-            case STEP -> stepTo(pathPoint.point(), nextPathPoint.point(), movementSpeed);
-            case JUMP -> jumpTo(pathPoint.point(), nextPathPoint.point(), movementSpeed);
-            default -> moveTo(pathPoint.point(), nextPathPoint.point(), movementSpeed, 0.0D);
-        }
-    }
-
-    private void stepTo(Point point,
-                        Point nextPoint,
-                        double movementSpeed) {
-        final Pos entityPosition = entityMob.getPosition();
-        final double heightDelta = point.y() - entityPosition.y();
-        System.out.println("Height delta: " + heightDelta);
-        final double verticalSpeed = heightDelta > VERTICAL_EPSILON ? Math.min(heightDelta + 0.1D, STEP_VERTICAL_SPEED) : 0.0D;
-
-        moveTo(point, nextPoint, movementSpeed, verticalSpeed);
     }
 
     private void jumpTo(Point point,
@@ -125,53 +101,83 @@ public final class OldGroundPathNavigator extends PathNavigator {
                         Point nextPoint,
                         double movementSpeed,
                         double verticalSpeed) {
-        final Pos entityPosition = entityMob.getPosition();
-        final double targetX = getBlockCenterX(point);
-        final double targetZ = getBlockCenterZ(point);
-        final double nextTargetX = getBlockCenterX(nextPoint);
-        final double nextTargetZ = getBlockCenterZ(nextPoint);
+        final Pos pos = entityMob.getPosition();
+        final double dx = point.x() - pos.x();
+        final double dy = point.y() - pos.y();
+        final double dz = point.z() - pos.z();
 
-        // get the difference between the point we need to get to and the entities current position
-        final double dx = targetX - entityPosition.x();
-        final double dy = point.y() - entityPosition.y();
-        final double dz = targetZ - entityPosition.z();
-        final double horizontalDistanceSquared = dx * dx + dz * dz;
-        final boolean hasHorizontalMovement = horizontalDistanceSquared > MOVEMENT_EPSILON_SQUARED;
-        final boolean hasVerticalMovement = Math.abs(verticalSpeed) > Vec.EPSILON;
-        if (!hasHorizontalMovement && !hasVerticalMovement) {
+        final double dxLook = nextPoint.x() - pos.x();
+        final double dyLook = nextPoint.y() - pos.y();
+        final double dzLook = nextPoint.z() - pos.z();
+
+        final double horizDistSq = dx * dx + dz * dz;
+        final double horizDist = Math.sqrt(horizDistSq);
+
+        if (horizDistSq < 2.5E-7) {
+            entityMob.setVelocity(new Vec(0, entityMob.getVelocity().y(), 0));
             return;
         }
 
-        // get the direction that the entity should look at, which will be the difference between the next point and the entities current position
-        double dxLook = nextTargetX - entityPosition.x();
-        double dyLook = nextPoint.y() - entityPosition.y();
-        double dzLook = nextTargetZ - entityPosition.z();
-        final double lookDistanceSquared = dxLook * dxLook + dyLook * dyLook + dzLook * dzLook;
-        if (lookDistanceSquared <= LOOK_EPSILON_SQUARED) {
-            dxLook = dx;
-            dyLook = dy;
-            dzLook = dz;
-        }
+        movementSpeed = Math.min(movementSpeed, horizDist);
 
-        final double speedX;
-        final double speedZ;
-        if (hasHorizontalMovement) {
-            final double horizontalDistance = Math.sqrt(horizontalDistanceSquared);
-            final double clampedSpeed = Math.min(movementSpeed, horizontalDistance);
-            final double speedScale = clampedSpeed / horizontalDistance;
-            speedX = dx * speedScale;
-            speedZ = dz * speedScale;
-        } else {
-            speedX = 0.0D;
-            speedZ = 0.0D;
-        }
+        final double radians = Math.atan2(dz, dx);
+        final double velX = Math.cos(radians) * movementSpeed * 20;
+        final double velZ = Math.sin(radians) * movementSpeed * 20;
 
         final float yaw = PositionUtils.getLookYaw(dxLook, dzLook);
         final float pitch = PositionUtils.getLookPitch(dxLook, dyLook, dzLook);
 
-        // actually move the entity with respect to physics
-        final PhysicsResult physicsResult = CollisionUtils.handlePhysics(entityMob, new Vec(speedX, verticalSpeed, speedZ));
-        entityMob.refreshPosition(physicsResult.newPosition().asPos().withView(yaw, pitch));
+        Vec currentVel = entityMob.getVelocity();
+        entityMob.setVelocity(new Vec(velX, currentVel.y(), velZ));
+        entityMob.setView(yaw, pitch);
+
+//        final Pos entityPosition = entityMob.getPosition();
+//        final double targetX = getBlockCenterX(point);
+//        final double targetZ = getBlockCenterZ(point);
+//        final double nextTargetX = getBlockCenterX(nextPoint);
+//        final double nextTargetZ = getBlockCenterZ(nextPoint);
+//
+//        // get the difference between the point we need to get to and the entities current position
+//        final double dx = targetX - entityPosition.x();
+//        final double dy = point.y() - entityPosition.y();
+//        final double dz = targetZ - entityPosition.z();
+//        final double horizontalDistanceSquared = dx * dx + dz * dz;
+//        final boolean hasHorizontalMovement = horizontalDistanceSquared > MOVEMENT_EPSILON_SQUARED;
+//        final boolean hasVerticalMovement = Math.abs(verticalSpeed) > Vec.EPSILON;
+//        if (!hasHorizontalMovement && !hasVerticalMovement) {
+//            return;
+//        }
+//
+//        // get the direction that the entity should look at, which will be the difference between the next point and the entities current position
+//        double dxLook = nextTargetX - entityPosition.x();
+//        double dyLook = nextPoint.y() - entityPosition.y();
+//        double dzLook = nextTargetZ - entityPosition.z();
+//        final double lookDistanceSquared = dxLook * dxLook + dyLook * dyLook + dzLook * dzLook;
+//        if (lookDistanceSquared <= LOOK_EPSILON_SQUARED) {
+//            dxLook = dx;
+//            dyLook = dy;
+//            dzLook = dz;
+//        }
+//
+//        final double speedX;
+//        final double speedZ;
+//        if (hasHorizontalMovement) {
+//            final double horizontalDistance = Math.sqrt(horizontalDistanceSquared);
+//            final double clampedSpeed = Math.min(movementSpeed, horizontalDistance);
+//            final double speedScale = clampedSpeed / horizontalDistance;
+//            speedX = dx * speedScale;
+//            speedZ = dz * speedScale;
+//        } else {
+//            speedX = 0.0D;
+//            speedZ = 0.0D;
+//        }
+//
+//        final float yaw = PositionUtils.getLookYaw(dxLook, dzLook);
+//        final float pitch = PositionUtils.getLookPitch(dxLook, dyLook, dzLook);
+//
+//        // actually move the entity with respect to physics
+//        final PhysicsResult physicsResult = CollisionUtils.handlePhysics(entityMob, new Vec(speedX, verticalSpeed, speedZ));
+//        entityMob.refreshPosition(physicsResult.newPosition().asPos().withView(yaw, pitch));
     }
 
     private static double getBlockCenterX(Point point) {

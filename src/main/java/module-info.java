@@ -53,6 +53,7 @@ module net.minestom.server {
     exports net.minestom.server.entity.ai;
     exports net.minestom.server.entity.ai.goals;
     exports net.minestom.server.entity.ai.navigation;
+    exports net.minestom.server.entity.ai.navigation.data;
     exports net.minestom.server.entity.ai.navigation.types;
     exports net.minestom.server.entity.attribute;
     exports net.minestom.server.entity.damage;
@@ -154,7 +155,6 @@ module net.minestom.server {
     exports net.minestom.server.pathfinding;
     exports net.minestom.server.pathfinding.collections;
     exports net.minestom.server.pathfinding.context;
-    exports net.minestom.server.pathfinding.cost;
     exports net.minestom.server.pathfinding.data;
     exports net.minestom.server.pathfinding.evaluator;
     exports net.minestom.server.pathfinding.evaluator.result;

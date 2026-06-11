@@ -27,6 +27,8 @@ public final class EvaluationContext {
     private final Shape newBlockShape;
     private final Shape belowNewBlockShape;
 
+    private final boolean largeBoundingBox;
+
     public EvaluationContext(@NotNull MobContext mobContext,
                              @NotNull Node oldNode,
                              @NotNull Node newNode,
@@ -38,7 +40,8 @@ public final class EvaluationContext {
                              @NotNull Block belowNewBlock,
                              @NotNull Shape oldBlockShape,
                              @NotNull Shape newBlockShape,
-                             @NotNull Shape belowNewBlockShape) {
+                             @NotNull Shape belowNewBlockShape,
+                             boolean largeBoundingBox) {
         this.mobContext = mobContext;
         this.oldNode = oldNode;
         this.newNode = newNode;
@@ -51,6 +54,7 @@ public final class EvaluationContext {
         this.oldBlockShape = oldBlockShape;
         this.newBlockShape = newBlockShape;
         this.belowNewBlockShape = belowNewBlockShape;
+        this.largeBoundingBox = largeBoundingBox;
     }
 
     public MobContext mobContext() {
@@ -107,5 +111,9 @@ public final class EvaluationContext {
 
     public Shape belowNewBlockShape() {
         return belowNewBlockShape;
+    }
+
+    public boolean largeBoundingBox() {
+        return largeBoundingBox;
     }
 }

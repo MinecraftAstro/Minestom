@@ -10,21 +10,21 @@ public final class Path {
 
     private final State state;
 
-    private final List<PathPoint> positions;
+    private final List<Point> points;
     private final Point start;
     private final Point end;
 
     private final int length;
 
     public Path(@NotNull State state,
-                @NotNull List<PathPoint> positions,
+                @NotNull List<Point> points,
                 @NotNull Point start,
                 @NotNull Point end) {
         this.state = state;
-        this.positions = positions;
+        this.points = points;
         this.start = start;
         this.end = end;
-        this.length = (int) ObjectIterables.size(positions);
+        this.length = (int) ObjectIterables.size(points);
     }
 
     @NotNull
@@ -33,8 +33,8 @@ public final class Path {
     }
 
     @NotNull
-    public List<PathPoint> positions() {
-        return positions;
+    public List<Point> points() {
+        return points;
     }
 
     @NotNull

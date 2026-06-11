@@ -25,6 +25,7 @@ public class CommandContext {
     private final String commandName;
     protected Map<String, Object> args = new HashMap<>();
     protected Map<String, String> rawArgs = new HashMap<>();
+    @Nullable
     private CommandData returnData;
 
     public CommandContext(String input) {

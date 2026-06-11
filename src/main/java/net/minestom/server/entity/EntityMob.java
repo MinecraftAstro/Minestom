@@ -3,6 +3,7 @@ package net.minestom.server.entity;
 import net.minestom.server.coordinate.Point;
 import net.minestom.server.entity.ai.Brain;
 import net.minestom.server.entity.ai.navigation.PathNavigator;
+import net.minestom.server.entity.ai.navigation.data.NavigationDataSnapshot;
 import net.minestom.server.pathfinding.Pathfinder;
 import net.minestom.server.pathfinding.data.Path;
 
@@ -50,11 +51,19 @@ public class EntityMob extends LivingEntity {
         super.update(time);
     }
 
-    public CompletableFuture<Path> setPath(Point target,
+    public CompletableFuture<Path> findPath(Point target,
                                            int completionRange,
                                            Runnable completionCallback,
                                            Runnable bestEffortCompletionCallback) {
-        return brain.pathNavigator().setPath(target, completionRange, completionCallback, bestEffortCompletionCallback);
+        return brain.pathNavigator().findPath(target, completionRange, completionCallback, bestEffortCompletionCallback);
+    }
+
+    public void setPath(NavigationDataSnapshot dataSnapshot) {
+        brain.pathNavigator().setPath(dataSnapshot);
+    }
+
+    public NavigationDataSnapshot getNavigationDataSnapshot() {
+        return brain.pathNavigator().getNavigationDataSnapshot();
     }
 
     public void clearPath() {

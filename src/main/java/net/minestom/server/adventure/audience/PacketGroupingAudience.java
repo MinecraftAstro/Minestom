@@ -28,6 +28,7 @@ import java.util.Collection;
  * An audience implementation that sends grouped packets if possible.
  */
 public interface PacketGroupingAudience extends ForwardingAudience {
+
     /**
      * Creates a packet grouping audience that copies an iterable of players. The
      * underlying collection is not copied, so changes to the collection will be

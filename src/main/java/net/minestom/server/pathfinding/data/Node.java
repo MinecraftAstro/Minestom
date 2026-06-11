@@ -1,7 +1,6 @@
 package net.minestom.server.pathfinding.data;
 
 import net.minestom.server.coordinate.Point;
-import net.minestom.server.instance.block.Block;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,8 +17,6 @@ public final class Node implements Comparable<Node> {
     private final Point start;
     private final Point target;
 
-    private Block groundBlock;
-
     private Type type;
 
     public Node(@NotNull Point point,
@@ -29,10 +26,10 @@ public final class Node implements Comparable<Node> {
         this.point = point;
         this.depth = depth;
         this.g = 0;
-        this.h = point.manhattanDistance(target);
+        this.h = point.octileDistance(target);
         this.start = start;
         this.target = target;
-        this.type = Type.EMPTY;
+        this.type = Type.OPEN;
     }
 
     @NotNull
@@ -49,8 +46,7 @@ public final class Node implements Comparable<Node> {
     }
 
     public double getF() {
-        // add a small weight to increase performance with a trade-off for path optimality
-        return g + 1.5 * h;
+        return g + h;
     }
 
     public void setG(double g) {
@@ -82,15 +78,6 @@ public final class Node implements Comparable<Node> {
     @NotNull
     public Point target() {
         return target;
-    }
-
-    @NotNull
-    public Block getGroundBlock() {
-        return groundBlock == null ? Block.AIR : groundBlock;
-    }
-
-    public void setGroundBlock(@Nullable Block groundBlock) {
-        this.groundBlock = groundBlock;
     }
 
     public void setType(@NotNull Type type) {
@@ -145,27 +132,19 @@ public final class Node implements Comparable<Node> {
     @Override
     public String toString() {
         return "Node{" +
-                "groundBlock=" + getGroundBlock() +
-                ", g=" + g +
+                "g=" + g +
                 ", h=" + h +
                 ", f=" + getF() +
                 '}';
     }
 
+    // represents the node type which keeps track of specific landscape features such as water, lava, etc
     public enum Type {
 
-        EMPTY,
+        OPEN,
 
-        FALL,
+        WATER,
 
-        STEP,
-
-        JUMP,
-
-        // move through water
-        SWIM,
-
-        // float on water, this happens if the path ends up with the end point being a liquid block
-        FLOAT
+        LAVA
     }
 }
