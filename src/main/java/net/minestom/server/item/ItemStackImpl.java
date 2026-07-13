@@ -160,6 +160,7 @@ record ItemStackImpl(Material material, int amount, DataComponentMap components)
     }
 
     static final class Builder implements ItemStack.Builder {
+
         private static final TooltipDisplay EXTRA_TOOLTIP_HIDE = new TooltipDisplay(false, Set.of(
                 DataComponents.BANNER_PATTERNS, DataComponents.BEES, DataComponents.BLOCK_ENTITY_DATA,
                 DataComponents.BLOCK_STATE, DataComponents.BUNDLE_CONTENTS, DataComponents.CHARGED_PROJECTILES,

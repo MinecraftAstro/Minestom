@@ -42,11 +42,11 @@ public class ComeCommand extends Command {
                 ).join();
 
                 if (path.state() == Path.State.FAILED) {
-                    System.out.println("Could not compute path.");
+//                    System.out.println("Could not compute path.");
                     continue;
                 }
 
-                System.out.println("Path Size: " + path.points().size());
+//                System.out.println("Path Size: " + path.points().size());
 
                 if (path.state() == Path.State.FOUND) {
                     foundAmount++;

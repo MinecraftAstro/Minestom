@@ -90,11 +90,11 @@ public final class Pathfinder {
             // check if the pathfinding request was canceled
             if (cancelFlag.get()) {
                 if (options.isBestEffortOnCancel()) {
-                    System.out.println("best effort on cancel");
+//                    System.out.println("best effort on cancel");
                     return reconstructPath(start, target, bestFallbackNode, true);
                 }
 
-                System.out.println("canceled");
+//                System.out.println("canceled");
                 return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
             }
 
@@ -109,8 +109,8 @@ public final class Pathfinder {
 
             // check if the path has reached the max length
             if (hasMaxLength && currentNode.depth() >= options.getMaxLength()) {
-                System.out.println("max length exceeded");
-                System.out.println(currentNode.depth());
+//                System.out.println("max length exceeded");
+//                System.out.println(currentNode.depth());
                 return reconstructPath(start, target, bestFallbackNode, true);
             }
 
@@ -125,12 +125,12 @@ public final class Pathfinder {
 
         // check if we should resort to the best effort path if we couldn't find a path
         if (options.isBestEffortOnFailure()) {
-            System.out.println("best effort on failure");
-            System.out.println("iterations: " + iteration);
+//            System.out.println("best effort on failure");
+//            System.out.println("iterations: " + iteration);
             return reconstructPath(start, target, bestFallbackNode, true);
         }
 
-        System.out.println("failed x2");
+//        System.out.println("failed x2");
         return new Path(Path.State.FAILED, Collections.emptyList(), start, target);
     }
 
@@ -156,7 +156,7 @@ public final class Pathfinder {
 
         Collections.reverse(debugNodes);
         for (Node node : debugNodes) {
-            System.out.println(node);
+//            System.out.println(node);
         }
 
         Collections.reverse(points);

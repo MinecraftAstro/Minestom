@@ -4,6 +4,8 @@ import it.unimi.dsi.fastutil.ints.IntIntPair;
 import net.minestom.server.entity.EquipmentSlot;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.EventDispatcher;
+import net.minestom.server.event.inventory.InventoryDoubleClickEndEvent;
+import net.minestom.server.event.inventory.InventoryDragEndEvent;
 import net.minestom.server.event.item.EntityEquipEvent;
 import net.minestom.server.inventory.click.ClickType;
 import net.minestom.server.inventory.click.InventoryClickResult;
@@ -322,6 +324,7 @@ public non-sealed class PlayerInventory extends AbstractInventory {
         }
 
         setCursorItem(clickResult);
+        EventDispatcher.call(new InventoryDragEndEvent(player, clickResult));
         update(); // FIXME: currently not properly client-predicted
         return true;
     }
@@ -337,6 +340,7 @@ public non-sealed class PlayerInventory extends AbstractInventory {
         }
 
         setCursorItem(clickResult.getCursor());
+        EventDispatcher.call(new InventoryDoubleClickEndEvent(player, clickResult.getCursor()));
         update(); // FIXME: currently not properly client-predicted
         return true;
     }

@@ -2,7 +2,11 @@ package net.minestom.server.inventory;
 
 import it.unimi.dsi.fastutil.ints.IntIntPair;
 import net.kyori.adventure.text.Component;
+import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
+import net.minestom.server.event.EventDispatcher;
+import net.minestom.server.event.inventory.InventoryDoubleClickEndEvent;
+import net.minestom.server.event.inventory.InventoryDragEndEvent;
 import net.minestom.server.inventory.click.ClickType;
 import net.minestom.server.inventory.click.InventoryClickResult;
 import net.minestom.server.item.ItemStack;
@@ -321,6 +325,7 @@ public non-sealed class Inventory extends AbstractInventory {
             return false;
         }
         playerInventory.setCursorItem(clickResult);
+        EventDispatcher.call(new InventoryDragEndEvent(player, clickResult));
         updateAll(player); // FIXME: currently not properly client-predicted
         return true;
     }
@@ -341,6 +346,7 @@ public non-sealed class Inventory extends AbstractInventory {
             return false;
         }
         playerInventory.setCursorItem(clickResult.getCursor());
+        EventDispatcher.call(new InventoryDoubleClickEndEvent(player, clickResult.getCursor()));
         updateAll(player); // FIXME: currently not properly client-predicted
         return true;
     }
